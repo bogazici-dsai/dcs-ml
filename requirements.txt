@@ -1,0 +1,11 @@
+
+gym
+gymnasium
+langchain
+loguru
+numpy
+PyYAML
+stable_baselines3==2.1.0
+torch
+traci==1.21.0
+libsumo==1.21.0
