@@ -1,6 +1,12 @@
 import os
-os.environ['SUMO_HOME'] = '/opt/miniconda3/envs/llmrl'
-os.environ['PATH'] = f"/opt/miniconda3/envs/llmrl/bin:{os.environ['PATH']}"
+# os.environ['SUMO_HOME'] = '/opt/miniconda3/envs/llmrl'
+# os.environ['PATH'] = f"/opt/miniconda3/envs/llmrl/bin:{os.environ['PATH']}"
+
+
+
+import os
+os.environ['SUMO_HOME'] = '/usr/bin/sumo'
+import os
 
 import torch
 from loguru import logger
@@ -67,7 +73,8 @@ if __name__ == '__main__':
     # ============
     # Load trained RL model
     # ============
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    # device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_path = path_convert('./models/last_rl_model.zip')
     model = PPO.load(model_path, env=env, device=device)
 
@@ -84,9 +91,9 @@ if __name__ == '__main__':
     obs = env.reset()
 
     while not dones:
-        action, _state = model.predict(obs, deterministic=True)
+        # action, _state = model.predict(obs, deterministic=True)
 
-        if sim_step > 4:
+        if sim_step > 0:
             action = tsc_agent.agent_run(
                 sim_step=sim_step,
                 action=action,

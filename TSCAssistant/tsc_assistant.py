@@ -81,9 +81,9 @@ class TSCAgent:
         rescue_movement_ids = self.get_rescue_movement_ids(last_step_vehicle_id_list, movement_ids)
 
         review_template = """
-        decision: Traffic light decision-making judgment — whether the Action is reasonable in the current state.
-        explanations: Your explanation about your decision, described your suggestions to the Crossing Guard. 
-        final_action: ONLY the number of Action you suggestion, 0, 1, 2 or 3
+        decision: Simple Doorkey environment decision-making judgment — whether the Action is reasonable in the current state.
+        explanations: Your explanation about your decision, described your suggestions to the sane next decision. 
+        final_action: ONLY the number of Action you suggestion, 0, 1, 2, 3, 4, 5, 6.
 
         Format the output as JSON with the following keys:  
         decision
@@ -106,7 +106,7 @@ class TSCAgent:
         )
         final_action = ResponseSchema(
             name="final_action",
-            description="Final action number: 0, 1, 2 or 3"
+            description="Final action number: 0, 1, 2, 3, 4, 5, 6"
         )
 
         output_parser = StructuredOutputParser.from_response_schemas(
@@ -115,7 +115,9 @@ class TSCAgent:
         format_instructions = output_parser.get_format_instructions()
 
         observation = (f"""
-        You, the 'traffic signal light', are now controlling the traffic signal in the junction with ID `{self.tls_id}`.
+        
+        This environment has a key that the agent must pick up in order to unlock a door and then get to the green goal square. This environment is difficult, because of the sparse reward, to solve using classical RL algorithms. It is useful to experiment with curiosity or curriculum learning.
+        You, the 'agent in 5x5 MiniGrid DoorKey environment', are now trying to the reach the green goal by picking up the key and open the door.
         The step time is: {step_time}
         The decision RL Agent made is Action: {Action}
         Mean occupancy of each movement: {Occupancy}
