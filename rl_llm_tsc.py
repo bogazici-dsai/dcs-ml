@@ -87,13 +87,13 @@ if __name__ == '__main__':
     # Run test loop
     # ============
     dones = False
-    sim_step = 0
+    sim_step = 1
     obs = env.reset()
 
     while not dones:
-        # action, _state = model.predict(obs, deterministic=True)
+        action, _state = model.predict(obs, deterministic=True)
 
-        if sim_step > 0:
+        if sim_step % 4 == 0:
             action = tsc_agent.agent_run(
                 sim_step=sim_step,
                 action=action,

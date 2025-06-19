@@ -30,7 +30,7 @@
     </emissions>
 
     <traci_server>
-        <remote-port value="59247"/>
+        <remote-port value="37175"/>
     </traci_server>
 
     <random_number>

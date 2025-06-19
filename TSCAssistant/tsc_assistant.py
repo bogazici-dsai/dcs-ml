@@ -18,6 +18,52 @@ from TSCAssistant.tsc_agent_prompt import (
 )
 
 
+"""
+MINIGRID DOORKEY
+Description
+This environment has a key that the agent must pick up in order to unlock a door and then get to the green goal square. This environment is difficult, because of the sparse reward, to solve using classical RL algorithms. It is useful to experiment with curiosity or curriculum learning.
+
+Observation Encoding
+
+    Each tile is encoded as a 3 dimensional tuple: (OBJECT_IDX, COLOR_IDX, STATE)
+
+    OBJECT_TO_IDX and COLOR_TO_IDX mapping can be found in minigrid/core/constants.py
+
+    STATE refers to the door state with 0=open, 1=closed and 2=locked
+
+
+Action Space
+0 left Turn left
+
+1 right Turn right
+
+2 forward Move forward
+
+3 pickup Pick up an object
+
+4 drop Unused
+
+5 toggle Toggle/activate an object
+
+6 done Unused
+
+
+
+Rewards
+A reward of ‘1 - 0.9 * (step_count / max_steps)’ is given for success, and ‘0’ for failure.
+
+Termination
+
+The episode ends if any one of the following conditions is met:
+
+    The agent reaches the goal.
+
+    Timeout (see max_steps).
+
+
+"""
+
+
 class TSCAgent:
     def __init__(self, llm: RunnableLambda, verbose: bool = True, state: float = []) -> None:
         self.tls_id = 'J1'
@@ -50,6 +96,21 @@ class TSCAgent:
             [0, 0, 0, 0, 0, 0, 1, 1]
         ])
 
+    # TODO: extract useful observation features from the "obs" (7x7x3) return of the Minigrid environment
+    def get_grid_size(self, obs):
+        grid_size = None
+        return grid_size
+    def get_goal_object_type(self, obs):
+        goal_object_type = None
+        return goal_object_type
+    def get_vertical_distance_to_goal_object(self, obs):
+        distance = None
+        return distance
+    def get_horizontal_distance_to_goal_object(self, obs):
+        distance = None
+        return distance
+
+
     def get_occupancy(self, states):
         phase_list = self.get_phase()
         occupancy = states[:, :, 1]
@@ -68,6 +129,7 @@ class TSCAgent:
         return rescue_movement_ids
 
     def agent_run(self, sim_step: float, action: int = 0, obs: float = [], infos: list = {}):
+        # TODO: discard TSC functionalities, when the Minigrid is done
         logger.info(f"SIM: Decision at step {sim_step} is running:")
         occupancy = self.get_occupancy(obs)
         Action = action[0]
@@ -80,6 +142,13 @@ class TSCAgent:
         missing_id = infos[0]['missing_id']
         rescue_movement_ids = self.get_rescue_movement_ids(last_step_vehicle_id_list, movement_ids)
 
+        # TODO: check if these getted informations are sane
+        grid_size = self.get_grid_size(obs)
+        goal_object_type = self.get_goal_object_type(obs)
+        v_distance = self.get_vertical_distance_to_goal_object(obs)
+        h_distance = self.get_horizontal_distance_to_goal_object(obs)
+
+        # TODO: check if this prompt makes sense for our Minigrid Simple Doorkey task, especially state and action definitions
         review_template = """
         decision: Simple Doorkey environment decision-making judgment — whether the Action is reasonable in the current state.
         explanations: Your explanation about your decision, described your suggestions to the sane next decision. 
@@ -114,16 +183,17 @@ class TSCAgent:
         )
         format_instructions = output_parser.get_format_instructions()
 
+        # TODO: adapt getted Minigrid features into this string, check if its sane
         observation = (f"""
         
         This environment has a key that the agent must pick up in order to unlock a door and then get to the green goal square. This environment is difficult, because of the sparse reward, to solve using classical RL algorithms. It is useful to experiment with curiosity or curriculum learning.
         You, the 'agent in 5x5 MiniGrid DoorKey environment', are now trying to the reach the green goal by picking up the key and open the door.
         The step time is: {step_time}
         The decision RL Agent made is Action: {Action}
-        Mean occupancy of each movement: {Occupancy}
-        Vehicles waiting: {jam_length_meters}
-        Emergency vehicles on: {rescue_movement_ids}
-        Phase to Movement: {self.phase2movements}
+        Grid size: {grid_size}
+        Goal object type: {goal_object_type}
+        Vertical distance to the goal object: {v_distance}
+        Horizontal distance to the goal object: {h_distance}
         Info loss: {information_missing}, Missing ID: {missing_id}
 
         {DECISION_CAUTIONS}
