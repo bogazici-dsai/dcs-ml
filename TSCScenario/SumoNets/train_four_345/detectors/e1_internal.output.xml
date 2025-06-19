@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-06-05 11:52:07 by Eclipse SUMO GUI Version 1.23.1
+<sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
+
+    <input>
+        <net-file value="/home/orion/Desktop/dcs-ml/./TSCScenario/SumoNets/train_four_345/env/4phases.net.xml"/>
+        <route-files value="/home/orion/Desktop/dcs-ml/./TSCScenario/SumoNets/train_four_345/env/testflow.rou.xml"/>
+        <additional-files value="/home/orion/Desktop/dcs-ml/./TSCScenario/SumoNets/train_four_345/env/../detectors/e1_internal.add.xml,/home/orion/Desktop/dcs-ml/./TSCScenario/SumoNets/train_four_345/env/ ../detectors/e2.add.xml"/>
+    </input>
+
+    <output>
+        <tripinfo-output value="./log/trip_info.xml"/>
+        <tripinfo-output.write-unfinished value="true"/>
+    </output>
+
+    <processing>
+        <time-to-teleport value="-1"/>
+        <waiting-time-memory value="10000"/>
+        <max-depart-delay value="100000"/>
+    </processing>
+
+    <report>
+        <no-warnings value="true"/>
+        <no-step-log value="true"/>
+    </report>
+
+    <emissions>
+        <device.emissions.probability value="1.0"/>
+    </emissions>
+
+    <traci_server>
+        <remote-port value="37175"/>
+    </traci_server>
+
+    <random_number>
+        <random value="true"/>
+    </random_number>
+
+    <gui_only>
+        <quit-on-end value="true"/>
+        <start value="true"/>
+    </gui_only>
+
+</sumoConfiguration>
+-->
+
+<detector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/det_e1_file.xsd">
+</detector>

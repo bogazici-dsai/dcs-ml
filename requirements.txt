@@ -1,0 +1,23 @@
+# Core Dependencies
+torch>=2.1
+numpy
+PyYAML
+loguru
+
+# SUMO-related
+traci==1.21.0
+libsumo==1.21.0
+
+# RL Environment
+gym==0.26.2
+gymnasium==0.28.1
+stable-baselines3==2.1.0
+
+# LangChain + LLM
+langchain>=0.1.17
+langchain-core>=0.1.35
+langchain-community>=0.0.30
+langchain-ollama>=0.1.0  # ⚠️ important for Ollama integration
+
+# Optional: if you're parsing outputs or using advanced prompts
+tqdm
