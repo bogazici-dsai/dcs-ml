@@ -39,11 +39,11 @@ def translate_features_for_llm(features: dict) -> dict:
         explanations["door_state"] = "The door is not visible in the agent’s current view, so its state is unknown."
 
     # Distances
-    explanations["dist_to_key"] = f"The key is {features.get('dist_to_key', '?')} steps away."
-    explanations["dist_to_door"] = f"The door is {features.get('dist_to_door', '?')} steps away."
-    explanations["dist_to_goal"] = f"The goal is {features.get('dist_to_goal', '?')} steps away."
+    explanations["dist_to_key"] = f"The distance between key and the agent is {features.get('dist_to_key', '?')}."
+    explanations["dist_to_door"] = f"The distance between door and the agent is {features.get('dist_to_door', '?')}."
+    explanations["dist_to_goal"] = f"The distance between goal and the agent is {features.get('dist_to_goal', '?')}."
     explanations["dist_to_nearest_object"] = (
-        f"The nearest object is {features.get('dist_to_nearest_object', '?')} steps away."
+        f"The distance between the nearest object and the agent is {features.get('dist_to_nearest_object', '?')}"
     )
     # Vertical distance to goal
     vdist = features.get("vertical_distance_to_goal")

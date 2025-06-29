@@ -57,14 +57,6 @@ class TSCAgent:
         is_adj_key = is_adjacent(agent_pos, key_pos)
         is_adj_door = is_adjacent(agent_pos, door_pos)
 
-        direction = int(obs["direction"])
-        direction_to_compass = {
-            0: "east",  # right
-            1: "south",  # down
-            2: "west",  # left
-            3: "north"  # up
-        }
-        facing_compass = direction_to_compass.get(direction)
 
         def get_vertical_distance(p, q):
             return abs(p[0] - q[0]) if (p and q) else None
@@ -115,7 +107,6 @@ class TSCAgent:
         multiple_paths_open = frees >= 2
 
         def is_facing_object_agent_frame(agent_pos: tuple[int, int],
-                                         direction: int,
                                          obj_map: np.ndarray,
                                          obj_idx: int
                                          ) -> bool:
@@ -123,8 +114,6 @@ class TSCAgent:
             Returns True if, in the agent’s own frame, the given object sits
             *one step directly in front* (i.e. at local dir == "up").
             """
-            if agent_pos is None or direction is None:
-                return False
 
             # Compute the neighbor cell one step forward in global coords
             yn = agent_pos[1] + 1
@@ -137,10 +126,10 @@ class TSCAgent:
                 return False
 
         # … inside your feature extractor …
-        is_facing_wall = is_facing_object_agent_frame(agent_pos, direction, obj_map, OBJECT_TO_IDX["wall"])
+        is_facing_wall = is_facing_object_agent_frame(agent_pos, obj_map, OBJECT_TO_IDX["wall"])
         # Similarly, you can now do:
-        is_facing_key = is_facing_object_agent_frame(agent_pos, direction, obj_map, OBJECT_TO_IDX["key"])
-        is_facing_door = is_facing_object_agent_frame(agent_pos, direction, obj_map, OBJECT_TO_IDX["door"])
+        is_facing_key = is_facing_object_agent_frame(agent_pos, obj_map, OBJECT_TO_IDX["key"])
+        is_facing_door = is_facing_object_agent_frame(agent_pos, obj_map, OBJECT_TO_IDX["door"])
         return {
             "grid_size": grid_size,
             "agent_pos": agent_pos,
@@ -163,7 +152,6 @@ class TSCAgent:
             "rel_dir_to_door": rel_dir_to_door,
             "is_adjacent_to_key": is_adj_key,
             "is_adjacent_to_door": is_adj_door,
-            "facing_direction_compass": facing_compass,
             "multiple_paths_open": multiple_paths_open,
             "facing_key": is_facing_key,
             "facing_wall": is_facing_wall,
