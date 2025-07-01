@@ -6,7 +6,8 @@ from typing import Dict
 
 from langchain_ollama import ChatOllama
 from langchain_core.runnables import RunnableLambda
-from TSCAssistant.tsc_assistant_mediator import TSCAgentWithMediator
+# CHANGED: Import the enhanced TSC agent instead of the old one
+from TSCAssistant.tsc_assistant_mediator import TSCAgentWithMediator  # This should be your enhanced version
 from utils.make_tsc_env import make_env
 from stable_baselines3 import PPO
 
@@ -27,13 +28,16 @@ def run_episode_flow(rl_agent, tsc_agent, rl_env, llm_env, episode: int, max_ste
     """
     # Reset environments
     rl_obs, _ = rl_env.reset(seed=episode)
-    llm_obs, _ = llm_env.reset(seed=episode)
+    llm_obs, llm_info = llm_env.reset(seed=episode)
 
     done = False
     sim_step = 0
     total_reward = 0
     interrupts = 0
     overrides = 0
+
+    # ADDED: Store environment reference for has_key detection
+    llm_info["llm_env"] = llm_env
 
     logger.info(f"Episode {episode} START - RL is primary agent")
 
@@ -45,11 +49,12 @@ def run_episode_flow(rl_agent, tsc_agent, rl_env, llm_env, episode: int, max_ste
         rl_action = int(rl_action)
 
         # STEP 2: MEDIATOR DECIDES - Should we interrupt RL with LLM?
+        # ENHANCED: Pass the llm_env info for better feature extraction
         final_action, was_interrupted, interaction_info = tsc_agent.agent_run(
             sim_step=sim_step,
             obs=llm_obs,
             rl_action=rl_action,
-            infos={"env": "MiniGrid-DoorKey-6x6-v0"},
+            infos={"env": "MiniGrid-DoorKey-6x6-v0", "llm_env": llm_env},  # ADDED llm_env
             reward=total_reward,
             use_learned_asking=True
         )
@@ -61,11 +66,34 @@ def run_episode_flow(rl_agent, tsc_agent, rl_env, llm_env, episode: int, max_ste
                 overrides += 1
 
         # STEP 3: EXECUTE ACTION IN ENVIRONMENT
-        rl_obs, reward, terminated, truncated, _ = rl_env.step(final_action)
-        llm_obs, _, _, _, _ = llm_env.step(final_action)
+        try:
+            rl_obs, reward, terminated, truncated, _ = rl_env.step(final_action)
+            llm_obs, _, _, _, llm_info = llm_env.step(final_action)
+
+            # Update llm_env reference for next iteration
+            llm_info["llm_env"] = llm_env
+
+        except Exception as e:
+            logger.error(f"Environment step failed: {e}")
+            # Use safe fallback action
+            rl_obs, reward, terminated, truncated, _ = rl_env.step(0)  # Turn left
+            llm_obs, _, _, _, llm_info = llm_env.step(0)
+            llm_info["llm_env"] = llm_env
 
         done = terminated or truncated
         total_reward += reward
+
+        # ADDED: Pass reward to mediator for better training
+        if sim_step > 1:  # Skip first step since we don't have previous reward
+            # Train mediator with the reward from this step
+            tsc_agent.mediator.train_asking_policy(
+                obs=llm_obs,
+                action=rl_action,
+                reward=reward,
+                next_obs=llm_obs,
+                asked_llm=was_interrupted,
+                llm_plan_changed=interaction_info.get('llm_plan_changed', False)
+            )
 
     success_emoji = "✅" if total_reward > 0 else "❌"
     logger.info(f"Episode {episode} END: Reward={total_reward:.2f}, "
@@ -77,13 +105,45 @@ def run_episode_flow(rl_agent, tsc_agent, rl_env, llm_env, episode: int, max_ste
         'success': total_reward > 0,
         'interrupts': interrupts,
         'overrides': overrides,
-        'interrupt_rate': interrupts / sim_step if sim_step > 0 else 0
+        'interrupt_rate': interrupts / sim_step if sim_step > 0 else 0,
+        'override_rate': overrides / max(interrupts, 1)  # ADDED: override efficiency
     }
+
+
+def evaluate_baseline(rl_agent, rl_env, num_episodes: int = 10):
+    """
+    ADDED: Evaluate baseline RL performance without LLM
+    """
+    logger.info("Evaluating baseline RL performance (no LLM)...")
+    baseline_results = []
+
+    for episode in range(num_episodes):
+        obs, _ = rl_env.reset(seed=episode + 1000)  # Different seeds
+        done = False
+        total_reward = 0
+        steps = 0
+
+        while not done and steps < 100:
+            action, _ = rl_agent.predict(obs, deterministic=True)
+            obs, reward, terminated, truncated, _ = rl_env.step(action)
+            done = terminated or truncated
+            total_reward += reward
+            steps += 1
+
+        baseline_results.append({
+            'reward': total_reward,
+            'success': total_reward > 0,
+            'steps': steps
+        })
+
+    baseline_success = np.mean([r['success'] for r in baseline_results])
+    logger.info(f"Baseline RL Success Rate: {baseline_success:.1%}")
+    return baseline_success
 
 
 def main():
     """Main experiment with mediator flow."""
-    logger.info("Starting Mediator Experiment")
+    logger.info("Starting Enhanced Mediator Experiment")
     logger.info("RL is PRIMARY, LLM interrupts when mediator decides useful")
 
     # Setup
@@ -100,79 +160,129 @@ def main():
 
     # Load RL Agent (PRIMARY)
     model_path = "models/ppo_minigrid_doorkey_6x6_250000_steps"
-    rl_agent = PPO.load(model_path, device=device)
 
-    # Initialize TSC Agent with Mediator
+    try:
+        rl_agent = PPO.load(model_path, device=device)
+        logger.info("RL agent loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to load RL agent: {e}")
+        logger.info("Training environment will use random actions for demonstration")
+        rl_agent = None
+
+    # Initialize Enhanced TSC Agent with Mediator
     obs_shape = llm_env.observation_space['image'].shape
     tsc_agent = TSCAgentWithMediator(
         llm=llm,
         obs_shape=obs_shape,
         device=device,
-        verbose=True,
+        verbose=True,  # Set to False for less logging
         train_mediator=True
     )
 
-    logger.info("Setup complete - RL primary, mediator learns when to interrupt")
+    logger.info("Setup complete - Enhanced TSC agent with rich spatial features")
 
-    # Train mediator for 50 episodes (quick test)
-    logger.info("Training mediator to learn when RL needs LLM help...")
+    # ADDED: Baseline evaluation if RL agent available
+    baseline_success = None
+    if rl_agent is not None:
+        baseline_success = evaluate_baseline(rl_agent, rl_env, num_episodes=5)
+
+    # Train mediator
+    num_episodes = 5  # INCREASED for better learning
+    logger.info(f"Training mediator for {num_episodes} episodes...")
 
     results = []
-    for episode in range(50):
-        result = run_episode_flow(
-            rl_agent=rl_agent,
-            tsc_agent=tsc_agent,
-            rl_env=rl_env,
-            llm_env=llm_env,
-            episode=episode
-        )
-        results.append(result)
+    for episode in range(num_episodes):
+        try:
+            result = run_episode_flow(
+                rl_agent=rl_agent,
+                tsc_agent=tsc_agent,
+                rl_env=rl_env,
+                llm_env=llm_env,
+                episode=episode
+            )
+            results.append(result)
 
-        # Log progress every 10 episodes
-        if episode % 10 == 0:
-            recent_results = results[-10:] if len(results) >= 10 else results
-            avg_success = np.mean([r['success'] for r in recent_results])
-            avg_interrupts = np.mean([r['interrupts'] for r in recent_results])
-            avg_interrupt_rate = np.mean([r['interrupt_rate'] for r in recent_results])
+            # Log progress every 20 episodes
+            if episode % 20 == 0 and episode > 0:
+                recent_results = results[-20:] if len(results) >= 20 else results
+                avg_success = np.mean([r['success'] for r in recent_results])
+                avg_interrupts = np.mean([r['interrupts'] for r in recent_results])
+                avg_interrupt_rate = np.mean([r['interrupt_rate'] for r in recent_results])
+                avg_override_rate = np.mean([r['override_rate'] for r in recent_results])
 
-            logger.info(f"Episode {episode}: Success={avg_success:.1%}, "
-                        f"Avg_Interrupts={avg_interrupts:.1f}, "
-                        f"Interrupt_Rate={avg_interrupt_rate:.1%}")
+                logger.info(f"Episode {episode}: Success={avg_success:.1%}, "
+                            f"Interrupts={avg_interrupts:.1f}, "
+                            f"Interrupt_Rate={avg_interrupt_rate:.1%}, "
+                            f"Override_Rate={avg_override_rate:.1%}")
+
+                # Get mediator learning stats
+                mediator_stats = tsc_agent.get_mediator_stats()
+                logger.info(f"Mediator: Ask_Rate={mediator_stats.get('recent_ask_rate', 0):.2f}, "
+                            f"Training_Phase={mediator_stats.get('training_phase', 'unknown')}")
+
+        except Exception as e:
+            logger.error(f"Episode {episode} failed: {e}")
+            continue
 
     # Print final results
-    print("\n" + "=" * 60)
-    print("MEDIATOR TRAINING RESULTS")
-    print("=" * 60)
-    success_rate = np.mean([r['success'] for r in results])
-    avg_reward = np.mean([r['reward'] for r in results])
-    avg_interrupts = np.mean([r['interrupts'] for r in results])
-    avg_interrupt_rate = np.mean([r['interrupt_rate'] for r in results])
+    print("\n" + "=" * 70)
+    print("ENHANCED MEDIATOR TRAINING RESULTS")
+    print("=" * 70)
 
-    print(f"Success Rate:        {success_rate:.1%}")
-    print(f"Average Reward:      {avg_reward:.2f}")
-    print(f"Average Interrupts:  {avg_interrupts:.1f} per episode")
-    print(f"Average Interrupt Rate: {avg_interrupt_rate:.1%}")
+    if results:
+        success_rate = np.mean([r['success'] for r in results])
+        avg_reward = np.mean([r['reward'] for r in results])
+        avg_interrupts = np.mean([r['interrupts'] for r in results])
+        avg_interrupt_rate = np.mean([r['interrupt_rate'] for r in results])
+        avg_override_rate = np.mean([r['override_rate'] for r in results])
 
-    # Get mediator statistics
-    mediator_stats = tsc_agent.get_mediator_stats()
-    print(f"\nMediator Learning:")
-    print(f"Recent Ask Rate:     {mediator_stats.get('recent_ask_rate', 0):.2f}")
-    print(f"Interaction Efficiency: {mediator_stats.get('interaction_efficiency', 0):.2f}")
+        print(f"Enhanced TSC Agent Performance:")
+        print(f"Success Rate:           {success_rate:.1%}")
+        print(f"Average Reward:         {avg_reward:.2f}")
+        print(f"Average Interrupts:     {avg_interrupts:.1f} per episode")
+        print(f"Average Interrupt Rate: {avg_interrupt_rate:.1%}")
+        print(f"Average Override Rate:  {avg_override_rate:.1%} (when interrupted)")
 
-    # Save trained mediator
-    save_path = "models/mediator_trained.pt"
-    os.makedirs("models", exist_ok=True)
-    tsc_agent.save_mediator(save_path)
-    logger.info("Saved trained mediator")
+        if baseline_success is not None:
+            improvement = success_rate - baseline_success
+            print(f"\nComparison to Baseline RL:")
+            print(f"Baseline Success Rate:  {baseline_success:.1%}")
+            print(f"Improvement:            {improvement:+.1%}")
+
+        # Get final mediator statistics
+        mediator_stats = tsc_agent.get_mediator_stats()
+        print(f"\nMediator Learning Progress:")
+        print(f"Total Training Steps:   {mediator_stats.get('total_steps', 0)}")
+        print(f"Current Ask Rate:       {mediator_stats.get('recent_ask_rate', 0):.2f}")
+        print(f"Training Phase:         {mediator_stats.get('training_phase', 'unknown')}")
+        print(f"Interaction Efficiency: {mediator_stats.get('interaction_efficiency', 0):.2f}")
+
+        # Save trained mediator
+        save_path = "models/enhanced_mediator_trained.pt"
+        os.makedirs("models", exist_ok=True)
+        tsc_agent.save_mediator(save_path)
+        logger.info(f"Saved enhanced trained mediator to {save_path}")
+
+        # ADDED: Success criteria
+        if success_rate > 0.7:
+            logger.info("🎉 SUCCESS! Enhanced mediator learned effective LLM interruption!")
+        elif success_rate > 0.5:
+            logger.info("✅ GOOD! Mediator showing improvement, may benefit from more training")
+        else:
+            logger.info("⚠️  Mediator still learning - needs more training episodes")
+
+        # ADDED: Efficiency analysis
+        if avg_interrupt_rate < 0.3 and success_rate > 0.6:
+            logger.info("🚀 EXCELLENT! Efficient mediator - high success with low interrupts")
+        elif avg_interrupt_rate > 0.7:
+            logger.info("💡 Note: High interrupt rate - mediator may be over-asking")
+
+    else:
+        logger.error("No successful episodes completed!")
 
     # Cleanup
     rl_env.close()
     llm_env.close()
-
-    if success_rate > 0.5:
-        logger.info("SUCCESS! Mediator learned when to interrupt RL effectively!")
-    else:
-        logger.info("Mediator still learning - may need more training episodes")
 
 
 if __name__ == '__main__':

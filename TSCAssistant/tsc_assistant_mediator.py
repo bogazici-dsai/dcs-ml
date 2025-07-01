@@ -1,5 +1,3 @@
-# TSCAssistant/tsc_assistant_with_mediator.py - CLEAN DEBUG VERSION
-
 import re
 import numpy as np
 from loguru import logger
@@ -14,6 +12,7 @@ from minigrid.core.constants import OBJECT_TO_IDX, STATE_TO_IDX
 class TSCAgentWithMediator:
     """
     Enhanced TSC Agent that uses a Mediator to decide when to query LLM.
+    Now includes rich spatial features from tsc_assistant_updated.
     """
 
     def __init__(self,
@@ -39,24 +38,34 @@ class TSCAgentWithMediator:
         self.override_count = 0
 
     def extract_features(self, obs: np.ndarray, info: dict) -> dict:
-        """Extract features - NO WARNINGS, this is correct MiniGrid behavior."""
+        """
+        ENHANCED feature extraction - combines original mediator features
+        with rich spatial features from tsc_assistant_updated.
+        """
 
-        obj_map = obs['image'][:, :, 0]
-        state_map = obs['image'][:, :, 2]
+        # Get environment for carrying state (from updated version)
+        env = info.get("llm_env", None)
+
+        # Use coordinate system from updated version
+        obj_map = np.fliplr(obs['image'][:, :, 0])
+        state_map = np.fliplr(obs['image'][:, :, 2])
+
+        # Agent carrying state (from updated version)
+        has_key = bool(getattr(env.unwrapped, "carrying", None)) if env else False
 
         def find(idx):
             locs = np.argwhere(obj_map == idx)
             return tuple(int(x) for x in locs[0]) if len(locs) else None
 
-        # In MiniGrid partial observation, agent is ALWAYS at center
-        height, width = obj_map.shape
-        agent_pos = (height // 2, width // 2)  # (3, 3) for 7x7 grid
+        # Agent position (use updated version coordinates)
+        agent_pos = (3, 0)
 
+        # Find objects
         key_pos = find(OBJECT_TO_IDX["key"])
         door_pos = find(OBJECT_TO_IDX["door"])
         goal_pos = find(OBJECT_TO_IDX["goal"])
 
-        # Door state
+        # Door state (keep original mediator logic but enhance it)
         door_state = None
         if door_pos:
             inv_state = {v: k for k, v in STATE_TO_IDX.items()}
@@ -70,28 +79,118 @@ class TSCAgentWithMediator:
         dist_to_door = manh(agent_pos, door_pos)
         dist_to_goal = manh(agent_pos, goal_pos)
 
-        # Adjacency
+        # ADD: Enhanced spatial features from updated version
+        def get_vertical_distance(p, q):
+            return abs(p[0] - q[0]) if (p and q) else None
+
+        def get_horizontal_distance(p, q):
+            return abs(p[1] - q[1]) if (p and q) else None
+
+        vert_dist_to_goal = get_vertical_distance(agent_pos, goal_pos)
+        horiz_dist_to_goal = get_horizontal_distance(agent_pos, goal_pos)
+        vertical_distance_to_key = get_vertical_distance(agent_pos, key_pos)
+        horizontal_distance_to_key = get_horizontal_distance(agent_pos, key_pos)
+
+        # ADD: Relative directions from updated version
+        def rel_dir_agent_frame(agent_pos, q_pos):
+            if not (agent_pos and q_pos):
+                return None
+            # Global vector
+            dy, dx = q_pos[1] - agent_pos[1], q_pos[0] - agent_pos[0]
+
+            if dx == 0:
+                if dy < 0:
+                    return "down"
+                elif dy > 0:
+                    return "up"
+            elif dx < 0:
+                return "left"
+            elif dx > 0:
+                return "right"
+
+        rel_dir_to_key = rel_dir_agent_frame(agent_pos, key_pos)
+        rel_dir_to_door = rel_dir_agent_frame(agent_pos, door_pos)
+
+        # ADD: Enhanced environmental analysis from updated version
+        other_mask = (obj_map > OBJECT_TO_IDX["empty"]) & (obj_map != OBJECT_TO_IDX["agent"]) & (
+                    obj_map != OBJECT_TO_IDX["wall"])
+        other_locs = [tuple(loc) for loc in np.argwhere(other_mask)]
+        dists = [manh(agent_pos, loc) for loc in other_locs]
+        valid_dists = [d for d in dists if d is not None]
+        dist_to_nearest_object = min(valid_dists) if valid_dists else None
+
+        grid_size = obs['image'].shape[:2]
+        num_visible_objects = int(other_mask.sum())
+
+        # ADD: Object counts from updated version
+        counts = {
+            name: int((obj_map == idx).sum())
+            for name, idx in OBJECT_TO_IDX.items()
+            if name not in ("empty", "agent")
+        }
+
+        # ADD: Path analysis from updated version
+        free_mask = (obj_map == OBJECT_TO_IDX["empty"])
+        frees = 0
+        if agent_pos:
+            y, x = agent_pos
+            for dy, dx in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                ny, nx = y + dy, x + dx
+                if 0 <= ny < grid_size[0] and 0 <= nx < grid_size[1] and free_mask[ny, nx]:
+                    frees += 1
+        multiple_paths_open = frees >= 2
+
+        # ADD: Enhanced object detection from updated version
+        def object_in_front(agent_pos: tuple, obj_map: np.ndarray):
+            try:
+                # Compute the neighbor cell one step forward in global coords
+                yn = agent_pos[1] + 1
+                xn = agent_pos[0]
+                # Check facing
+                if 0 <= xn < obj_map.shape[0] and 0 <= yn < obj_map.shape[1]:
+                    if obj_map[xn, yn] == OBJECT_TO_IDX["key"]:
+                        return "key"
+                    elif obj_map[xn, yn] == OBJECT_TO_IDX["door"]:
+                        return "door"
+                    elif obj_map[xn, yn] == OBJECT_TO_IDX["wall"]:
+                        return "wall"
+                    elif obj_map[xn, yn] == OBJECT_TO_IDX["goal"]:
+                        return "goal"
+                    else:
+                        return "empty"
+                return "out_of_bounds"
+            except (IndexError, TypeError):
+                return "error"
+
+        front_object = object_in_front(agent_pos, obj_map)
+
+        # Adjacency (keep original)
         def is_adjacent(p, q):
             return (p and q and manh(p, q) == 1)
 
         is_adj_key = is_adjacent(agent_pos, key_pos)
         is_adj_door = is_adjacent(agent_pos, door_pos)
 
-        # Facing detection
-        def is_facing_object(agent_pos: tuple, obj_map: np.ndarray, obj_idx: int) -> bool:
-            y, x = agent_pos
-            front_y, front_x = y - 1, x  # Check cell in front (up direction)
+        # ENHANCED: Facing detection from updated version
+        def is_facing_object_agent_frame(agent_pos: tuple, obj_map: np.ndarray, obj_idx: int) -> bool:
+            try:
+                yn = agent_pos[1] + 1
+                xn = agent_pos[0]
 
-            if 0 <= front_y < obj_map.shape[0] and 0 <= front_x < obj_map.shape[1]:
-                return obj_map[front_y, front_x] == obj_idx
-            return False
+                if 0 <= xn < obj_map.shape[0] and 0 <= yn < obj_map.shape[1]:
+                    return obj_map[xn, yn] == obj_idx
+                return False
+            except (IndexError, TypeError):
+                return False
 
-        is_facing_key = is_facing_object(agent_pos, obj_map, OBJECT_TO_IDX["key"])
-        is_facing_door = is_facing_object(agent_pos, obj_map, OBJECT_TO_IDX["door"])
-        is_facing_wall = is_facing_object(agent_pos, obj_map, OBJECT_TO_IDX["wall"])
+        is_facing_key = is_facing_object_agent_frame(agent_pos, obj_map, OBJECT_TO_IDX["key"])
+        is_facing_door = is_facing_object_agent_frame(agent_pos, obj_map, OBJECT_TO_IDX["door"])
+        is_facing_wall = is_facing_object_agent_frame(agent_pos, obj_map, OBJECT_TO_IDX["wall"])
 
+        # Return ENHANCED feature dictionary (keeping all original + adding new ones)
         return {
-            "grid_size": obs['image'].shape[:2],
+            # Original mediator features (unchanged)
+            "grid_size": grid_size,
             "agent_pos": agent_pos,
             "key_pos": key_pos,
             "door_pos": door_pos,
@@ -107,7 +206,20 @@ class TSCAgentWithMediator:
             "facing_key": is_facing_key,
             "facing_wall": is_facing_wall,
             "facing_door": is_facing_door,
-            "facing_direction_compass": "north",
+
+            # ADDED: Enhanced features from updated version
+            "has_key": has_key,
+            "dist_to_nearest_object": dist_to_nearest_object,
+            "num_visible_objects": num_visible_objects,
+            "vertical_distance_to_goal": vert_dist_to_goal,
+            "horizontal_distance_to_goal": horiz_dist_to_goal,
+            "vertical_distance_to_key": vertical_distance_to_key,
+            "horizontal_distance_to_key": horizontal_distance_to_key,
+            "rel_dir_to_key": rel_dir_to_key,
+            "rel_dir_to_door": rel_dir_to_door,
+            "multiple_paths_open": multiple_paths_open,
+            "front_object": front_object,
+            **counts  # Add object counts
         }
 
     def agent_run(self,
@@ -121,10 +233,10 @@ class TSCAgentWithMediator:
 
         info = infos if isinstance(infos, dict) else infos[0]
 
-        # Extract features
+        # Extract ENHANCED features
         raw_feats = self.extract_features(obs, info)
 
-        # Mediator decides whether to interrupt RL
+        # Mediator decides whether to interrupt RL (unchanged)
         should_interrupt, interrupt_confidence = self.mediator.should_ask_llm(
             obs=obs,
             ppo_action=rl_action,
@@ -155,7 +267,7 @@ class TSCAgentWithMediator:
             final_action = rl_action
             was_interrupted = False
 
-        # Train mediator
+        # Train mediator (unchanged)
         if self.train_mediator and reward is not None:
             self.mediator.train_asking_policy(
                 obs=obs,
@@ -177,86 +289,78 @@ class TSCAgentWithMediator:
         return final_action, was_interrupted, interaction_info
 
     def _query_llm(self, features: Dict, ppo_action: int, info: Dict) -> Tuple[int, bool]:
-        """Query LLM with intelligent forbidden action handling."""
+        """ENHANCED query LLM with intelligent forbidden action handling using rich features."""
 
-        # SMART override for forbidden actions based on context
+        # ENHANCED: Smart override using new spatial features
         if ppo_action in [4, 6]:
-            # Analyze the situation to choose the RIGHT override action
+            # Use enhanced features for smarter decisions
             is_adjacent_to_key = features.get('is_adjacent_to_key', False)
             is_adjacent_to_door = features.get('is_adjacent_to_door', False)
             key_visible = features.get('is_key_visible', False)
             door_visible = features.get('is_door_visible', False)
 
+            # NEW: Use relative directions for better navigation
+            rel_dir_to_key = features.get('rel_dir_to_key')
+            front_object = features.get('front_object')
+
             logger.warning(f"PPO suggested forbidden action {ppo_action}")
 
-            # SMART OVERRIDE LOGIC:
+            # ENHANCED OVERRIDE LOGIC using new features:
             if is_adjacent_to_key:
                 logger.info("→ Adjacent to key, overriding to PICKUP (3)")
                 return 3, True
             elif is_adjacent_to_door:
                 logger.info("→ Adjacent to door, overriding to TOGGLE (5)")
                 return 5, True
-            elif key_visible:
-                # Key is visible but not adjacent - navigate toward it
-                key_pos = features.get('key_pos')
-                agent_pos = features.get('agent_pos')
-                if key_pos and agent_pos:
-                    # Simple navigation logic
-                    dy = key_pos[0] - agent_pos[0]
-                    dx = key_pos[1] - agent_pos[1]
-
-                    if abs(dy) > abs(dx):
-                        action = 2 if dy > 0 else 2  # Move forward (need to face right direction first)
-                    else:
-                        action = 2 if dx > 0 else 2  # Move forward
-
-                    logger.info(f"→ Key visible at {key_pos}, navigating with action {action}")
-                    return action, True
-                else:
-                    logger.info("→ Key visible but position unclear, turning LEFT (0)")
-                    return 0, True
-            elif door_visible:
-                logger.info("→ Door visible, moving FORWARD (2)")
+            elif front_object == "key":
+                logger.info("→ Key directly in front, moving FORWARD (2)")
                 return 2, True
+            elif front_object == "door":
+                logger.info("→ Door directly in front, moving FORWARD (2)")
+                return 2, True
+            elif key_visible and rel_dir_to_key:
+                # Use relative direction for smarter navigation
+                if rel_dir_to_key == "left":
+                    logger.info("→ Key visible left, turning LEFT (0)")
+                    return 0, True
+                elif rel_dir_to_key == "right":
+                    logger.info("→ Key visible right, turning RIGHT (1)")
+                    return 1, True
+                else:
+                    logger.info("→ Key visible, moving FORWARD (2)")
+                    return 2, True
+            elif features.get('multiple_paths_open', False):
+                logger.info("→ Multiple paths available, turning LEFT (0) to explore")
+                return 0, True
             else:
-                # Nothing specific visible, explore by turning
-                logger.info("→ Nothing specific visible, TURNING LEFT (0) to explore")
+                logger.info("→ Default exploration, turning LEFT (0)")
                 return 0, True
 
         try:
-            # DEBUG: Show what features we extracted
-            logger.info(f"FEATURES:")
-            logger.info(f"  Raw agent_pos: {features.get('agent_pos')}")
-            logger.info(f"  Raw key_pos: {features.get('key_pos')}")
-            logger.info(f"  is_adjacent_to_key: {features.get('is_adjacent_to_key')}")
-            logger.info(f"  is_key_visible: {features.get('is_key_visible')}")
-            logger.info(f"  dist_to_key: {features.get('dist_to_key')}")
-            logger.info(f"  facing_key: {features.get('facing_key')}")
+            # DEBUG: Show enhanced features (optional - can be removed for production)
+            if self.verbose:
+                logger.info(f"ENHANCED FEATURES:")
+                logger.info(f"  Agent pos: {features.get('agent_pos')}")
+                logger.info(f"  Key pos: {features.get('key_pos')}")
+                logger.info(f"  Rel dir to key: {features.get('rel_dir_to_key')}")
+                logger.info(f"  Front object: {features.get('front_object')}")
+                logger.info(f"  Has key: {features.get('has_key')}")
 
-            # Translate to natural language
+            # Translate to natural language (unchanged)
             translated_feats = translate_features_for_llm(features)
 
-            # Show translated features
-            logger.info(f"TRANSLATED FOR LLM:")
-            logger.info(f"  Agent pos: {translated_feats.get('agent_pos', 'Missing')}")
-            logger.info(f"  Key pos: {translated_feats.get('key_pos', 'Missing')}")
-            logger.info(f"  Adjacent to key: {translated_feats.get('is_adjacent_to_key', 'Missing')}")
-
-            # Generate prompt
+            # Generate prompt (unchanged)
             prompt = render_prompt(
                 env_name=info.get("env", "MiniGrid"),
                 features=translated_feats,
                 action=int(ppo_action)
             )
 
-            # Show first part of prompt
-            logger.info(f"📝 PROMPT START: {prompt[:200]}...")
-
-            # Get LLM response
+            # Get LLM response (unchanged)
             llm_response = self.llm.invoke(prompt)
             txt = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
 
-            # Parse action
+            # Parse action (unchanged)
             m = re.search(r"Selected\s*action\s*[:=]?\s*(\d)", txt, re.IGNORECASE)
             if not m:
                 logger.error(f"No action found in: {txt}")
@@ -280,7 +384,7 @@ class TSCAgentWithMediator:
     def _log_decision_correct(self, sim_step: int, rl_action: int, final_action: int,
                               should_interrupt: bool, interrupt_confidence: float,
                               was_interrupted: bool, llm_changed_plan: bool):
-        """Log decisions."""
+        """Log decisions. (unchanged)"""
 
         if should_interrupt:
             if llm_changed_plan:
@@ -297,7 +401,7 @@ class TSCAgentWithMediator:
                         f"(interrupt_confidence={interrupt_confidence:.2f})")
 
     def get_mediator_stats(self) -> Dict:
-        """Get mediator statistics."""
+        """Get mediator statistics. (unchanged)"""
         base_stats = self.mediator.get_statistics()
         base_stats.update({
             'total_interactions': self.interaction_count,
@@ -308,9 +412,9 @@ class TSCAgentWithMediator:
         return base_stats
 
     def save_mediator(self, path: str):
-        """Save the trained mediator."""
+        """Save the trained mediator. (unchanged)"""
         self.mediator.save_asking_policy(path)
 
     def load_mediator(self, path: str):
-        """Load a pre-trained mediator."""
+        """Load a pre-trained mediator. (unchanged)"""
         self.mediator.load_asking_policy(path)

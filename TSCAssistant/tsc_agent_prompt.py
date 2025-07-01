@@ -1,5 +1,3 @@
-# TSCAssistant/tsc_agent_prompt_old2.py
-
 PROMPT_TEMPLATE = """You are an expert controller for a reinforcement learning agent in MiniGrid-DoorKey-6x6.
 
 CURRENT SITUATION:
