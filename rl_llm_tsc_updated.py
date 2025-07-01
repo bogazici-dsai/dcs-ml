@@ -33,7 +33,7 @@ if __name__ == '__main__':
     device = get_device()
     print("Using device:", device)
 
-    llm_model_name = "llama3"
+    llm_model_name = "llama3.1:8b"
     chat = ChatOllama(model=llm_model_name, temperature=0.0)
     llm = RunnableLambda(lambda x: chat.invoke(x))
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     tsc_agent = TSCAgent(llm=llm, verbose=True)
 
     # Evaluation settings
-    num_episodes = 10
+    num_episodes = 100
     llm_frequency = 4 # every n steps LLM refines action
 
     all_rewards = []
@@ -67,7 +67,8 @@ if __name__ == '__main__':
                     sim_step=sim_step,
                     obs=LLM_obs,
                     action=action,
-                    infos={"env": env_name}
+                    infos={"env": env_name,
+                           "llm_env": llm_env}
                 )
 
             RL_obs, reward, terminated, truncated, info = rl_env.step(action)

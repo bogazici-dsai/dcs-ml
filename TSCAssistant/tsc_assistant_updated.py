@@ -15,10 +15,10 @@ class TSCAgent:
 
     def extract_features(self, obs: np.ndarray, info: dict) -> dict:
 
-
+        env = info.get("llm_env", None)
         obj_map = np.fliplr(obs['image'][:, :, 0])
         state_map = np.fliplr(obs['image'][:, :, 2])
-
+        has_key = bool(getattr(env.unwrapped, "carrying", None))
 
         def find(idx):
             locs = np.argwhere(obj_map == idx)
@@ -30,10 +30,9 @@ class TSCAgent:
         door_pos = find(OBJECT_TO_IDX["door"])
         goal_pos = find(OBJECT_TO_IDX["goal"])
 
-        door_state = None
+        door_state = False
         if door_pos:
-            inv_state = {v: k for k, v in STATE_TO_IDX.items()}
-            door_state = inv_state.get(int(state_map[door_pos]), "unknown")
+            door_state = state_map[door_pos]
 
         def manh(p, q):
             return abs(p[0] - q[0]) + abs(p[1] - q[1]) if (p and q) else None
@@ -42,14 +41,15 @@ class TSCAgent:
         dist_to_door = manh(agent_pos, door_pos)
         dist_to_goal = manh(agent_pos, goal_pos)
 
-        other_mask = (obj_map > OBJECT_TO_IDX["empty"]) & (obj_map != OBJECT_TO_IDX["agent"])
+        other_mask = (obj_map > OBJECT_TO_IDX["empty"]) & (obj_map != OBJECT_TO_IDX["agent"]) & (obj_map != OBJECT_TO_IDX["wall"])
         other_locs = [tuple(loc) for loc in np.argwhere(other_mask)]
         dists = [manh(agent_pos, loc) for loc in other_locs]
         valid_dists = [d for d in dists if d is not None]
         dist_to_nearest = min(valid_dists) if valid_dists else None
 
-        is_key_visible = key_pos is not None
-        is_door_visible = door_pos is not None
+
+        is_key_visible = bool(find(OBJECT_TO_IDX["key"]))
+        is_door_visible = bool(find(OBJECT_TO_IDX["door"]))
 
         def is_adjacent(p, q):
             return (p and q and manh(p, q) == 1)
@@ -105,7 +105,23 @@ class TSCAgent:
                 if 0 <= ny < grid_size[0] and 0 <= nx < grid_size[1] and free_mask[ny, nx]:
                     frees += 1
         multiple_paths_open = frees >= 2
+        def object_in_front(agent_pos: tuple[int, int],
+                                         obj_map: np.ndarray,
+                                         ):
 
+            # Compute the neighbor cell one step forward in global coords
+            yn = agent_pos[1] + 1
+            xn = agent_pos[0]
+            # Check facing
+            if obj_map[xn, yn] == OBJECT_TO_IDX["key"]:
+                return "Key"
+            if obj_map[xn, yn] == OBJECT_TO_IDX["door"]:
+                return "Door"
+            if obj_map[xn, yn] == OBJECT_TO_IDX["wall"]:
+                return "Wall"
+            if obj_map[xn, yn] == OBJECT_TO_IDX["goal"]:
+                return "Goal"
+        object_in_the_front=object_in_front(agent_pos, obj_map)
         def is_facing_object_agent_frame(agent_pos: tuple[int, int],
                                          obj_map: np.ndarray,
                                          obj_idx: int
@@ -136,6 +152,7 @@ class TSCAgent:
             "key_pos": key_pos,
             "door_pos": door_pos,
             "goal_pos": goal_pos,
+            "has_key": has_key,
             "door_state": door_state,
             "dist_to_key": dist_to_key,
             "dist_to_door": dist_to_door,
@@ -156,10 +173,11 @@ class TSCAgent:
             "facing_key": is_facing_key,
             "facing_wall": is_facing_wall,
             "facing_door": is_facing_door,
+            "front_object": object_in_the_front,
             **counts
         }
 
-    def agent_run(self, sim_step, obs, action, infos):
+    def agent_run(self, sim_step, obs, action, infos, env=None):
         info = infos if isinstance(infos, dict) else infos[0]
 
         raw_feats = self.extract_features(obs, info)
@@ -187,6 +205,7 @@ class TSCAgent:
             explanation = txt[m.end():].strip()
 
             if self.verbose:
+                #logger.info(f"WHOLE LLM RESPONSE:{txt}")
                 if overridden:
                     logger.info(f"[LLM @ Step {sim_step}] OVERRIDDEN by LLM: PPO {action} → LLM {llm_action}, EXPLANATION: {explanation}")
                 else:

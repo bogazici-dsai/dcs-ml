@@ -34,9 +34,15 @@ def translate_features_for_llm(features: dict) -> dict:
     # Door state
     door_state = features.get("door_state")
     if door_state:
-        explanations["door_state"] = f"The door appears to be {door_state.lower()}."
+        explanations["door_state"] = f"The door is {door_state}."
     else:
         explanations["door_state"] = "The door is not visible in the agent’s current view, so its state is unknown."
+    # Has key
+    has_key = features.get("has_key")
+    explanations["has_key"] = (
+        "The agent has the key." if has_key
+        else "The agent does not have the key."
+    )
 
     # Distances
     explanations["dist_to_key"] = f"The distance between key and the agent is {features.get('dist_to_key', '?')}."
@@ -98,12 +104,7 @@ def translate_features_for_llm(features: dict) -> dict:
         "There are multiple paths the agent can take." if features.get("multiple_paths_open")
         else "The agent is in a narrow or blocked area with limited paths."
     )
-    # Compass-based agent facing description
-    facing_compass = features.get("facing_direction_compass")
-    if facing_compass:
-        explanations["facing_direction_compass"] = f"The agent is facing toward the {facing_compass}."
-    else:
-        explanations["facing_direction_compass"] = "The agent’s compass-based facing direction is unknown."
+
     # Facing wall
     is_facing_wall = features.get("facing_wall")
     explanations["facing_wall"] = (
@@ -129,7 +130,11 @@ def translate_features_for_llm(features: dict) -> dict:
         f"There are {num_objects} objects visible in the grid."
         if num_objects is not None else "The number of visible objects is unknown."
     )
-
+    # Front Object
+    object = features.get("front_object")
+    explanations["front_object"] = (
+        f"The {features.get('front_object')} is in the front of the agent." if object else None
+    )
     # Positions
     explanations["agent_pos"] = f"The agent is located at grid position {features.get('agent_pos', '?')}."
     explanations["key_pos"] = f"The key is located at grid position {features.get('key_pos', '?')}."
