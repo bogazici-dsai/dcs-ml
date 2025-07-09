@@ -8,7 +8,7 @@ from minigrid.core.constants import OBJECT_TO_IDX, STATE_TO_IDX
 
 
 class AskingPolicy(nn.Module):
-    """Basit asking policy network"""
+
 
     def __init__(self, obs_shape: tuple, hidden_dim: int = 64):
         super().__init__()
@@ -59,12 +59,12 @@ class Mediator:
         self.asking_policy = AskingPolicy(obs_shape).to(device)
         self.optimizer = torch.optim.Adam(self.asking_policy.parameters(), lr=learning_rate)
 
-        # EXPLORATION-EXPLOITATION (Daha agresif)
-        self.exploration_episodes = 3  # Daha uzun exploration
+        # EXPLORATION-EXPLOITATION
+        self.exploration_episodes = 3
         self.current_episode = 0
-        self.epsilon = 0.8  # 60% random exploration (was 30%)
-        self.min_epsilon = 0.15  # Daha yüksek minimum (was 5%)
-        self.epsilon_decay = 0.985  # Daha yavaş decay (was 0.98)
+        self.epsilon = 0.8
+        self.min_epsilon = 0.15
+        self.epsilon_decay = 0.985
 
         # State tracking
         self.previous_obs = None
@@ -80,7 +80,7 @@ class Mediator:
         self.good_asks = 0  # Plan değişti
         self.bad_asks = 0  # Plan değişmedi
 
-        # Loop detection (Basit)
+        # Loop detection
         self.recent_actions = deque(maxlen=10)
         self.recent_positions = deque(maxlen=5)
         self.forced_rl_mode_steps = 0
@@ -89,16 +89,14 @@ class Mediator:
                        obs: Dict,
                        ppo_action: int,
                        use_learned_policy: bool = True) -> Tuple[bool, float]:
-        """
-        Basit asking decision - exploration-exploitation balance ile
-        """
 
-        # İlk observation
+
+        # First observation
         if self.previous_obs is None:
             self.previous_obs = obs
             return True, 1.0
 
-        # Basit loop detection
+        # Basic loop detection
         if self.forced_rl_mode_steps > 0:
             self.forced_rl_mode_steps -= 1
             return False, 0.1
@@ -121,17 +119,17 @@ class Mediator:
 
         # EXPLOITATION PHASE
         else:
-            # Network'e güven ama biraz exploration devam et
+
             should_ask, confidence = self._network_decision(obs)
 
-            # Küçük epsilon ile exploration
+
             if np.random.random() < self.min_epsilon:
                 should_ask = not should_ask
 
             return should_ask, confidence
 
     def _network_decision(self, obs: Dict) -> Tuple[bool, float]:
-        """Network'ten asking decision al - Daha liberal"""
+
         current_obs_tensor = self._obs_to_tensor(obs)
         previous_obs_tensor = self._obs_to_tensor(self.previous_obs)
 
@@ -140,7 +138,7 @@ class Mediator:
             probabilities = torch.softmax(logits, dim=0)
             ask_prob = probabilities[0].item()
 
-            # Daha liberal threshold - exploration'da daha kolay "ask" der
+
             threshold = 0.45 if self.current_episode < self.exploration_episodes else 0.55
             should_ask = ask_prob > threshold
 
@@ -181,17 +179,17 @@ class Mediator:
             self.previous_obs = obs
             return
 
-        # Exploration-friendly reward hesapla
+        # Exploration-friendly reward
         if asked_llm:
             self.total_asks += 1
             if llm_plan_changed:
                 self.good_asks += 1
-                # Exploration'da daha büyük bonus
+
                 bonus = 0.15 if self.current_episode < self.exploration_episodes else 0.1
                 training_reward = reward + bonus
             else:
                 self.bad_asks += 1
-                # Exploration'da daha küçük penalty
+
                 penalty = 0.05 if self.current_episode < self.exploration_episodes else 0.1
                 training_reward = reward - penalty
         else:
@@ -232,7 +230,7 @@ class Mediator:
         if asked_llm:
             self.steps_since_last_ask = 0
 
-        # Yavaş epsilon decay - daha uzun exploration
+
         if self.current_episode < self.exploration_episodes:
             self.epsilon = max(self.min_epsilon, self.epsilon * self.epsilon_decay)
 
@@ -253,7 +251,7 @@ class Mediator:
             self._log_progress()
 
     def _log_progress(self):
-        """Basit logging"""
+
         if len(self.ask_history) > 0:
             recent_ask_rate = np.mean(list(self.ask_history)[-50:])
             recent_success_rate = np.mean(list(self.success_history)[-10:])
@@ -268,7 +266,7 @@ class Mediator:
                             f"Epsilon: {self.epsilon:.3f}")
 
     def get_statistics(self) -> Dict:
-        """Basit stats"""
+
         if self.total_asks > 0:
             efficiency = self.good_asks / self.total_asks
         else:
@@ -289,7 +287,7 @@ class Mediator:
         }
 
     def save_asking_policy(self, path: str):
-        """Model'i kaydet"""
+
         torch.save({
             'model_state_dict': self.asking_policy.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
@@ -303,7 +301,7 @@ class Mediator:
         }, path)
 
     def load_asking_policy(self, path: str):
-        """Model'i yükle"""
+
         checkpoint = torch.load(path, map_location=self.device)
         self.asking_policy.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -321,7 +319,7 @@ class Mediator:
         return torch.FloatTensor(image).to(self.device)
 
     def _extract_features(self, obs: Dict) -> Dict:
-        """Extract features from observation - basit version"""
+        """Extract features from observation"""
         obj_map = obs['image'][:, :, 0]
         state_map = obs['image'][:, :, 2]
 
