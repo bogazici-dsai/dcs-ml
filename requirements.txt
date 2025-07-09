@@ -4,12 +4,8 @@ numpy~=2.0.2
 PyYAML~=6.0.2
 loguru~=0.7.3
 
-# SUMO-related
-traci==1.21.0
-libsumo==1.21.0
 
 # RL Environment
-gym==0.26.2
 gymnasium~=1.1.1
 stable-baselines3~=2.6.0
 
