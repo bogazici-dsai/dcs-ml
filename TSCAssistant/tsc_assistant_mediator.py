@@ -19,10 +19,11 @@ class TSCAgentWithMediator:
     def __init__(self,
                  llm,
                  obs_shape: tuple = (7, 7, 3),
-                 device: str = "cpu",
+                 device: str = "cuda",
                  verbose: bool = True,
                  train_mediator: bool = True):
         self.llm = llm
+        self.device = device
         self.verbose = verbose
         self.train_mediator = train_mediator
 
