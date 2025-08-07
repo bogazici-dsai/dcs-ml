@@ -1,0 +1,14 @@
+experiment:
+  result_dir: results
+  bc_actor_dir: bc_actor
+  bc_actor_name:
+    straight_line: Agent181_100_-4_Harfang_GYM
+    serpentine: Agent77_86_-600_Harfang_GYM
+    circular: Agent119_80_-2314_Harfang_GYM
+  expert_data_dir: expert_data
+
+network:
+  ip: 10.1.110.30 # Please replace this placeholder with your own IP address
+
+  #python hirl/train_all.py --port=50888 --env=serpentine --random --agent=HIRL --type=soft --model_name=my_first_test --seed=42 --render
+

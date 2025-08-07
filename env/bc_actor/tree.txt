@@ -1,0 +1,46 @@
+Folder PATH listing
+Volume serial number is F624-AAAA
+C:.
+³   tree.txt
+³   
+ÃÄÄÄcircular
+³       Agent119_80_-2314_Harfang_GYM.zip
+³       
+ÃÄÄÄserpentine
+³   ³   Agent77_86_-600_Harfang_GYM.zip
+³   ³   
+³   ÀÄÄÄAgent77_86_-600_Harfang_GYM
+³       ³   data.pkl
+³       ³   version
+³       ³   
+³       ÀÄÄÄdata
+³               0
+³               1
+³               2
+³               3
+³               4
+³               5
+³               6
+³               7
+³               8
+³               9
+³               
+ÀÄÄÄstraight_line
+    ³   Agent181_100_-4_Harfang_GYM.zip
+    ³   
+    ÀÄÄÄAgent181_100_-4_Harfang_GYM
+        ³   data.pkl
+        ³   version
+        ³   
+        ÀÄÄÄdata
+                0
+                1
+                2
+                3
+                4
+                5
+                6
+                7
+                8
+                9
+                
