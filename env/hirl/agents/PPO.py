@@ -57,7 +57,7 @@ class PPOAgentSB3:
             device='auto',
             **ppo_kwargs
         )
-        print(f"🤖 PPO Model created with:")
+        print(f"[BOT] PPO Model created with:")
         print(f"   - Learning Rate: {learning_rate}")
         print(f"   - n_steps: {n_steps}")
         print(f"   - Entropy Coefficient: {ent_coef}")
@@ -78,25 +78,25 @@ class PPOAgentSB3:
 
     def learn(self, total_timesteps):
         """Train the PPO model"""
-        print(f"🎯 Starting PPO training for {total_timesteps:,} timesteps...")
+        print(f"TARGET Starting PPO training for {total_timesteps:,} timesteps...")
         self.model.learn(
             total_timesteps=total_timesteps,
             progress_bar=True,
             reset_num_timesteps=True
         )
-        print(f"✅ Training completed!")
+        print(f"SUCCESS Training completed!")
 
     def saveCheckpoints(self, ajan, model_dir):
         """Save model checkpoint and (optionally) normalization statistics"""
         os.makedirs(model_dir, exist_ok=True)
         model_path = f"{model_dir}/{ajan}_{self.model_name}"
         self.model.save(model_path)
-        print(f"💾 Model saved: {model_path}.zip")
+        print(f"[SAVE] Model saved: {model_path}.zip")
 
         # Save VecNormalize statistics if using it
         if self.use_vecnormalize and isinstance(self.env, VecNormalize):
             self.env.save(os.path.join(model_dir, f"{ajan}_vecnormalize.pkl"))
-            print(f"💾 VecNormalize stats saved: {os.path.join(model_dir, f'{ajan}_vecnormalize.pkl')}")
+            print(f"[SAVE] VecNormalize stats saved: {os.path.join(model_dir, f'{ajan}_vecnormalize.pkl')}")
 
     def loadCheckpoints(self, ajan, model_dir):
         """Load model checkpoint and (optionally) normalization statistics"""
@@ -107,12 +107,12 @@ class PPOAgentSB3:
             # Load VecNormalize stats if available and needed
             if self.use_vecnormalize and os.path.exists(vecnorm_path):
                 self.env = VecNormalize.load(vecnorm_path, self.env)
-                print(f"📁 VecNormalize stats loaded: {vecnorm_path}")
+                print(f"[LOAD] VecNormalize stats loaded: {vecnorm_path}")
 
             self.model = PPO.load(model_path, env=self.env)
-            print(f"📁 Model loaded: {model_path}")
+            print(f"[LOAD] Model loaded: {model_path}")
         else:
-            print(f"⚠️ Model file not found: {model_path}")
+            print(f"WARNING Model file not found: {model_path}")
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
     def get_model_info(self):

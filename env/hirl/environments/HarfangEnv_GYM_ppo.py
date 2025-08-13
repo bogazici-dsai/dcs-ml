@@ -207,7 +207,7 @@ class HarfangEnv(gym.Env):
         if self.oppo_health['health_level'] <= 0:
             self.done = True
             self.episode_success = True
-            # print(f"Episode terminated: Enemy destroyed! 🎉")
+            # print(f"Episode terminated: Enemy destroyed! VICTORY")
 
     def _reset_machine(self):
         df.reset_machine("ally_1")

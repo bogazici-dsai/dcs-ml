@@ -97,7 +97,7 @@ class PPOAgentSB3:
         )
 
         # --- Print Configuration Summary ---
-        print(f"🤖 OPTIMIZED PPO Model created with:")
+        print(f"[BOT] OPTIMIZED PPO Model created with:")
         print(f"   - Learning Rate: {learning_rate}")
         print(f"   - n_steps (rollout): {n_steps}")
         print(f"   - Batch Size: {batch_size} (ratio: {batch_size / n_steps:.2f})")
@@ -139,7 +139,7 @@ class PPOAgentSB3:
 
     def learn(self, total_timesteps, callback=None):
         """Train the PPO model with enhanced logging"""
-        print(f"🎯 Starting OPTIMIZED PPO training for {total_timesteps:,} timesteps...")
+        print(f"TARGET Starting OPTIMIZED PPO training for {total_timesteps:,} timesteps...")
         print(f"   - Expected updates: {total_timesteps // self.hyperparameters['n_steps']}")
         print(f"   - Batches per update: {self.hyperparameters['n_steps'] // self.hyperparameters['batch_size']}")
 
@@ -149,27 +149,27 @@ class PPOAgentSB3:
             progress_bar=True,
             reset_num_timesteps=True
         )
-        print(f"✅ Optimized training completed!")
+        print(f"SUCCESS Optimized training completed!")
 
     def saveCheckpoints(self, ajan, model_dir):
         """Save model checkpoint and (optionally) normalization statistics"""
         os.makedirs(model_dir, exist_ok=True)
         model_path = f"{model_dir}/{ajan}_{self.model_name}"
         self.model.save(model_path)
-        print(f"💾 Model saved: {model_path}.zip")
+        print(f"[SAVE] Model saved: {model_path}.zip")
 
         # Save VecNormalize statistics if using it
         if self.use_vecnormalize and isinstance(self.env, VecNormalize):
             vecnorm_path = os.path.join(model_dir, f"{ajan}_vecnormalize.pkl")
             self.env.save(vecnorm_path)
-            print(f"💾 VecNormalize stats saved: {vecnorm_path}")
+            print(f"[SAVE] VecNormalize stats saved: {vecnorm_path}")
 
         # Save hyperparameters for reference
         import json
         hyperparam_path = os.path.join(model_dir, f"{ajan}_hyperparameters.json")
         with open(hyperparam_path, 'w') as f:
             json.dump(self.hyperparameters, f, indent=2)
-        print(f"💾 Hyperparameters saved: {hyperparam_path}")
+        print(f"[SAVE] Hyperparameters saved: {hyperparam_path}")
 
     def loadCheckpoints(self, ajan, model_dir):
         """Load model checkpoint and (optionally) normalization statistics"""
@@ -181,19 +181,19 @@ class PPOAgentSB3:
             # Load VecNormalize stats if available and needed
             if self.use_vecnormalize and os.path.exists(vecnorm_path):
                 self.env = VecNormalize.load(vecnorm_path, self.env)
-                print(f"📁 VecNormalize stats loaded: {vecnorm_path}")
+                print(f"[LOAD] VecNormalize stats loaded: {vecnorm_path}")
 
             self.model = PPO.load(model_path, env=self.env)
-            print(f"📁 Model loaded: {model_path}")
+            print(f"[LOAD] Model loaded: {model_path}")
 
             # Load and display hyperparameters if available
             if os.path.exists(hyperparam_path):
                 import json
                 with open(hyperparam_path, 'r') as f:
                     loaded_hyperparams = json.load(f)
-                print(f"📁 Loaded hyperparameters: {loaded_hyperparams}")
+                print(f"[LOAD] Loaded hyperparameters: {loaded_hyperparams}")
         else:
-            print(f"⚠️ Model file not found: {model_path}")
+            print(f"WARNING Model file not found: {model_path}")
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
     def get_model_info(self):
@@ -236,12 +236,12 @@ class PPOAgentSB3:
         # Update the optimizer learning rate
         for param_group in self.model.policy.optimizer.param_groups:
             param_group['lr'] = new_lr
-        print(f"📊 Learning rate updated to: {new_lr}")
+        print(f"[DATA] Learning rate updated to: {new_lr}")
 
     def set_entropy_coef(self, new_ent_coef):
         """Dynamically adjust entropy coefficient during training"""
         self.model.ent_coef = new_ent_coef
-        print(f"📊 Entropy coefficient updated to: {new_ent_coef}")
+        print(f"[DATA] Entropy coefficient updated to: {new_ent_coef}")
 
     def get_policy_entropy(self):
         """Get current policy entropy for monitoring exploration"""
@@ -280,10 +280,10 @@ class PPOAgentSB3:
             warnings.append(f"n_epochs ({self.model.n_epochs}) is high, may cause overfitting")
 
         if warnings:
-            print("⚠️ Hyperparameter warnings:")
+            print("WARNING Hyperparameter warnings:")
             for warning in warnings:
                 print(f"   - {warning}")
         else:
-            print("✅ Hyperparameters look reasonable")
+            print("SUCCESS Hyperparameters look reasonable")
 
         return warnings

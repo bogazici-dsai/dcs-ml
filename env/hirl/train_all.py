@@ -31,7 +31,7 @@ def debug_file_structure():
     # Check bc_actor directory
     bc_dir = "bc_actor"
     if os.path.exists(bc_dir):
-        print(f"✓ Found {bc_dir}/")
+        print(f"[OK] Found {bc_dir}/")
         for root, dirs, files in os.walk(bc_dir):
             level = root.replace(bc_dir, '').count(os.sep)
             indent = ' ' * 2 * level
@@ -42,12 +42,12 @@ def debug_file_structure():
                 file_size = os.path.getsize(file_path)
                 print(f"{sub_indent}{file} ({file_size} bytes)")
     else:
-        print(f"❌ {bc_dir} directory not found")
+        print(f"[FAIL] {bc_dir} directory not found")
 
     # Check expert_data directory
     expert_dir = "expert_data"
     if os.path.exists(expert_dir):
-        print(f"✓ Found {expert_dir}/")
+        print(f"[OK] Found {expert_dir}/")
         for root, dirs, files in os.walk(expert_dir):
             level = root.replace(expert_dir, '').count(os.sep)
             indent = ' ' * 2 * level
@@ -58,7 +58,7 @@ def debug_file_structure():
                 file_size = os.path.getsize(file_path)
                 print(f"{sub_indent}{file} ({file_size} bytes)")
     else:
-        print(f"❌ {expert_dir} directory not found")
+        print(f"[FAIL] {expert_dir} directory not found")
 
     print("=== END DEBUG ===\n")
 
@@ -72,10 +72,10 @@ def load_bc_actor_with_fallback(agent, bc_actor_name, bc_actor_dir):
     # Method 1: Try the updated load_bc_actor method
     try:
         agent.load_bc_actor(bc_actor_name, bc_actor_dir)
-        print('✓ Successfully loaded BC model via agent.load_bc_actor()')
+        print('[OK] Successfully loaded BC model via agent.load_bc_actor()')
         return True
     except Exception as e1:
-        print(f"❌ Method 1 failed: {e1}")
+        print(f"[FAIL] Method 1 failed: {e1}")
 
     # Method 2: Direct file search and loading
     try:
@@ -101,7 +101,7 @@ def load_bc_actor_with_fallback(agent, bc_actor_name, bc_actor_dir):
                     state_dict = torch.load(full_bc_path, map_location=agent.device)
                     agent.bc_actor.load_state_dict(state_dict)
                     agent.bc_actor.eval()
-                    print('✓ Successfully loaded BC model via direct method')
+                    print('[OK] Successfully loaded BC model via direct method')
                     return True
                 else:
                     raise FileNotFoundError(f"File not accessible: {full_bc_path}")
@@ -111,7 +111,7 @@ def load_bc_actor_with_fallback(agent, bc_actor_name, bc_actor_dir):
             raise FileNotFoundError(f"BC directory not found: {bc_actor_dir}")
 
     except Exception as e2:
-        print(f"❌ Method 2 failed: {e2}")
+        print(f"[FAIL] Method 2 failed: {e2}")
 
     # Method 3: Try alternative naming conventions
     try:
@@ -134,13 +134,13 @@ def load_bc_actor_with_fallback(agent, bc_actor_name, bc_actor_dir):
                     state_dict = torch.load(try_path, map_location=agent.device)
                     agent.bc_actor.load_state_dict(state_dict)
                     agent.bc_actor.eval()
-                    print(f'✓ Successfully loaded BC model via alternative naming: {try_path}')
+                    print(f'[OK] Successfully loaded BC model via alternative naming: {try_path}')
                     return True
 
     except Exception as e3:
-        print(f"❌ Method 3 failed: {e3}")
+        print(f"[FAIL] Method 3 failed: {e3}")
 
-    print("❌ All BC actor loading methods failed!")
+    print("[FAIL] All BC actor loading methods failed!")
     print("Available options:")
     print("1. Continue without BC model (may affect performance)")
     print("2. Check if bc_actor files exist and have correct permissions")
@@ -466,9 +466,9 @@ def main(config):
         if hirl_type == 'soft':
             bc_loaded = load_bc_actor_with_fallback(agent, bc_actor_name, bc_actor_dir)
             if bc_loaded:
-                print('✓ BC model loaded successfully')
+                print('[OK] BC model loaded successfully')
             else:
-                print('⚠️ Continuing without BC model - this may affect performance')
+                print('WARNING Continuing without BC model - this may affect performance')
                 # You can choose to either continue or exit here
                 # raise RuntimeError("Failed to load BC model. Training cannot continue.")
 

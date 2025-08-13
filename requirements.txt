@@ -13,6 +13,6 @@ stable_baselines3 # DONE
 langchain>=0.1.17
 langchain-core>=0.1.35
 langchain-community>=0.0.30
-langchain-ollama>=0.1.0  # ⚠️ important for Ollama integration
+langchain-ollama>=0.1.0  # important for Ollama integration
 
 minigrid~=3.0.0

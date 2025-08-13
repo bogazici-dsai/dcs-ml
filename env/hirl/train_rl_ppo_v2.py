@@ -18,7 +18,7 @@ try:
     WANDB_AVAILABLE = True
 except ImportError:
     WANDB_AVAILABLE = False
-    print("⚠️ WandB not available. Install with: pip install wandb")
+    print("WARNING WandB not available. Install with: pip install wandb")
 
 def setup_wandb(config, agent_name, env_type, model_name):
     if not WANDB_AVAILABLE:
@@ -31,10 +31,10 @@ def setup_wandb(config, agent_name, env_type, model_name):
             config=config,
             tags=[agent_name, env_type, "pure_rl", "harfang3d"]
         )
-        print(f"✅ WandB initialized: {agent_name}_{env_type}_{model_name}")
+        print(f"SUCCESS WandB initialized: {agent_name}_{env_type}_{model_name}")
         return wandb
     except Exception as e:
-        print(f"⚠️ WandB setup failed: {e}")
+        print(f"WARNING WandB setup failed: {e}")
         return None
 
 def save_parameters_to_txt(log_dir, **kwargs):
@@ -146,7 +146,7 @@ def log_to_wandb(wandb_instance, episode, result_dict, phase="training"):
         }
         wandb_instance.log(log_dict)
     except Exception as e:
-        print(f"⚠️ WandB logging failed: {e}")
+        print(f"WARNING WandB logging failed: {e}")
 
 def log_validation_rolling_metrics(wandb_instance, scores, trainsuccess, firesuccess, episode):
     if wandb_instance is None or len(scores) < 10:
@@ -167,7 +167,7 @@ def log_validation_rolling_metrics(wandb_instance, scores, trainsuccess, firesuc
                 }
                 wandb_instance.log(rolling_metrics)
     except Exception as e:
-        print(f"⚠️ Rolling metrics logging failed: {e}")
+        print(f"WARNING Rolling metrics logging failed: {e}")
 
 def main(config):
     agent_name = config.agent
@@ -291,7 +291,7 @@ def main(config):
         norm_obs=True,              # Normalize observations
         norm_reward=True            # Normalize rewards
     )
-    print(f"📊 Optimized PPO Hyperparameters:")
+    print(f"[DATA] Optimized PPO Hyperparameters:")
     print(f"   - Environment: {env_type}")
     print(f"   - Learning Rate: {learning_rate}")
     print(f"   - n_steps: {n_steps}")
@@ -303,9 +303,9 @@ def main(config):
 
     # Load model if requested
     if load_model:
-        print("📁 Loading pre-trained model...")
+        print("[LOAD] Loading pre-trained model...")
         agent.loadCheckpoints("FinalModel", model_dir)
-        print("✅ Model loaded successfully")
+        print("SUCCESS Model loaded successfully")
 
     wandb_config = {
         'trainingEpisodes': trainingEpisodes,
@@ -336,7 +336,7 @@ def main(config):
 
     print(f"\n=== PPO TRAINING PHASE (Optimized Configuration) ===")
     total_timesteps = trainingEpisodes * maxStep
-    print(f"🎯 Training for {total_timesteps:,} timesteps")
+    print(f"TARGET Training for {total_timesteps:,} timesteps")
     print(f"   Max episodes: {trainingEpisodes}")
     print(f"   Max steps per episode: {maxStep}")
 
@@ -360,7 +360,7 @@ def main(config):
     agent.model.learn(total_timesteps=total_timesteps, callback=ppo_callback, progress_bar=True)
 
     training_time = time.time() - start
-    print(f"✅ PPO training completed in {training_time:.1f} seconds")
+    print(f"SUCCESS PPO training completed in {training_time:.1f} seconds")
 
     # Log final PPO training metrics
     if wandb_instance:
@@ -375,7 +375,7 @@ def main(config):
         })
 
     agent.saveCheckpoints("FinalModel", model_dir)
-    print(f"💾 Final model saved to {model_dir}")
+    print(f"[SAVE] Final model saved to {model_dir}")
 
     print(f"\n=== VALIDATION PHASE ({validationEpisodes} episodes) ===")
     scores = []
@@ -452,7 +452,7 @@ def main(config):
     avg_reward = np.mean(scores) if len(scores) > 0 else 0.0
     success_rate = np.mean(trainsuccess) if len(trainsuccess) > 0 else 0.0
     fire_success_rate = np.mean(firesuccess) if len(firesuccess) > 0 else 0.0
-    print(f"\n🎉 FINAL RESULTS:")
+    print(f"\nVICTORY FINAL RESULTS:")
     print(f"   Environment: {env_type}")
     print(f"   Training Time: {training_time:.1f} seconds")
     print(f"   Training Timesteps: {total_timesteps:,}")
@@ -483,7 +483,7 @@ def main(config):
             })
         wandb_instance.log(final_metrics)
         wandb_instance.finish()
-        print("✅ WandB run completed and finished")
+        print("SUCCESS WandB run completed and finished")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -92,6 +92,6 @@ class RuleAgent:
                 self.aligned_count >= 3 and
                 distance < 3000):
             fire_cmd = 1.0
-            print(f"🔥 FIRE! Distance: {distance:.1f}m")
+            print(f"FIRE FIRE! Distance: {distance:.1f}m")
 
         return [pitch_cmd, roll_cmd, yaw_cmd, fire_cmd]

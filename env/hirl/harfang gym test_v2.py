@@ -26,7 +26,7 @@ def fire_all_slots_and_track(plane_id, label="ALLY", steps=20):
         return
 
     for idx, slot in enumerate(slots_pre):
-        print(f"\n  🔥 [{label}] Slot {slot} (index {idx}) fırlatılıyor...")
+        print(f"\n  FIRE [{label}] Slot {slot} (index {idx}) fırlatılıyor...")
         try:
             df.fire_missile(plane_id, idx)
             df.update_scene()
@@ -37,7 +37,7 @@ def fire_all_slots_and_track(plane_id, label="ALLY", steps=20):
 
         missiles_now = set(safe_call(df.get_missiles_list, must_have_key=None) or [])
         new_missiles = missiles_now - missiles_pre
-        print(f"    ➤ [{label}] Yeni oluşan missile ID'leri: {new_missiles}")
+        print(f"    --> [{label}] Yeni oluşan missile ID'leri: {new_missiles}")
 
         if not new_missiles:
             print(f"    [{label}] Fırlatmadan sonra yeni missile oluşmadı! (Ammo bitmiş veya simülasyon hatası olabilir)")
@@ -60,15 +60,15 @@ def main():
     IP = "10.1.110.30"
     PORT = 50888
 
-    print(f"\n🔗 Dogfight server'a bağlanılıyor... {IP}:{PORT}")
+    print(f"\n[LINK] Dogfight server'a bağlanılıyor... {IP}:{PORT}")
     df.connect(IP, PORT)
     time.sleep(1)
 
     env = HarfangEnv()
-    print("\n✅ HarfangEnv başlatıldı.")
+    print("\nSUCCESS HarfangEnv başlatıldı.")
 
     obs = env.reset()
-    print("\n🔄 Reset sonrası gözlem vektörü:")
+    print("\nRESET Reset sonrası gözlem vektörü:")
     print(obs)
     ally_id = env.Plane_ID_ally
     enemy_id = env.Plane_ID_oppo
@@ -77,7 +77,7 @@ def main():
     fire_all_slots_and_track(enemy_id, label="ENEMY", steps=20)
 
     df.disconnect()
-    print("\n🛑 Bağlantı kapatıldı.")
+    print("\n[STOP] Bağlantı kapatıldı.")
 
 if __name__ == "__main__":
     main()

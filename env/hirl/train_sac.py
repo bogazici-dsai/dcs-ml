@@ -26,7 +26,7 @@ try:
     WANDB_AVAILABLE = True
 except ImportError:
     WANDB_AVAILABLE = False
-    print("⚠️ WandB not available. Install with: pip install wandb")
+    print("WARNING WandB not available. Install with: pip install wandb")
 
 def setup_wandb(config, agent_name, env_type, model_name):
     if not WANDB_AVAILABLE:
@@ -39,10 +39,10 @@ def setup_wandb(config, agent_name, env_type, model_name):
             config=config,
             tags=[agent_name, env_type, "pure_rl", "harfang3d"]
         )
-        print(f"✅ WandB initialized: {agent_name}_{env_type}_{model_name}")
+        print(f"SUCCESS WandB initialized: {agent_name}_{env_type}_{model_name}")
         return wandb
     except Exception as e:
-        print(f"⚠️ WandB setup failed: {e}")
+        print(f"WARNING WandB setup failed: {e}")
         return None
 
 def log_to_wandb(wandb_instance, episode, result_dict, phase="training"):
@@ -64,7 +64,7 @@ def log_to_wandb(wandb_instance, episode, result_dict, phase="training"):
         }
         wandb_instance.log(log_dict)
     except Exception as e:
-        print(f"⚠️ WandB logging failed: {e}")
+        print(f"WARNING WandB logging failed: {e}")
 
 def log_validation_to_wandb(wandb_instance, episode, validation_results):
     if wandb_instance is None:
@@ -85,7 +85,7 @@ def log_validation_to_wandb(wandb_instance, episode, validation_results):
             "validation/reward_std": pstdev([r['reward'] for r in validation_results]),
         })
     except Exception as e:
-        print(f"⚠️ WandB validation logging failed: {e}")
+        print(f"WARNING WandB validation logging failed: {e}")
 
 def validate(validationEpisodes, env:HarfangEnv, validationStep, agent:SACAgent, plot, plot_dir, arttir, model_dir, episode, checkpointRate, tensor_writer:SummaryWriter, highScore, successRate, if_random, wandb_instance=None):
     success = 0
@@ -436,7 +436,7 @@ def main(config):
                 "final/total_episodes": trainingEpisodes,
             })
             wandb_instance.finish()
-            print("✅ WandB run completed and finished")
+            print("SUCCESS WandB run completed and finished")
 
     else:
         # E-SAC (Expert SAC) modu
@@ -622,7 +622,7 @@ def main(config):
                 "final/total_episodes": trainingEpisodes,
             })
             wandb_instance.finish()
-            print("✅ WandB run completed and finished")
+            print("SUCCESS WandB run completed and finished")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

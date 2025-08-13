@@ -1,10 +1,10 @@
-# 1️⃣ Open and write
+# 1. Open and write
 filename = r"C:\Users\fisne\PycharmProjects\HIRL4UCAV\bc_actor\straight_line\Agent181_100_-4_Harfang_GYM\data\mydocument.txt"
 with open(filename, "w") as file:
     file.write("Hello, this is the first line.\n")
     file.write("And this is the second line.\n")
 
-# 2️⃣ Re-open and read
+# 2. Re-open and read
 with open(filename, "r") as file:
     content = file.read()
     print("File content:")

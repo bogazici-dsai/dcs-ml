@@ -295,7 +295,7 @@ class HarfangEnv(gym.Env):
         if self.oppo_health['health_level'] <= 0:
             self.done = True
             self.episode_success = True
-            # print(f"Episode terminated: Enemy destroyed! 🎉")
+            # print(f"Episode terminated: Enemy destroyed! VICTORY")
 
         # Safety termination for excessive altitude violations
         if self.altitude_violations > 50:  # Allow some violations before terminating
