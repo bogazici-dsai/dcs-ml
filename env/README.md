@@ -1,4 +1,9 @@
 [**ENGLISH**](README.md) | [**中文**](assets/README_CN.md)
+## Useful commands
+```bash
+ python env/hirl/train_rule_yaw_agent.py --env simple_enemy --agent agents --port 50888 --episodes 10 --render  
+ python env/hirl/train_rule_yaw_agent.py --env simple_enemy --agent agents --port 50888 --episodes 1 --render  --command fire
+```
 
 <h1 align='center'> Highly Imitative Reinforcement Learning for UCAV </h1>
 

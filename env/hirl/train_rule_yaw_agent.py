@@ -632,7 +632,11 @@ class Agents:
 #    agents.fire_cmd(state)
 #]
 def main(args):
-    with open('local_config.yaml', 'r') as file:
+    import os
+
+    current_path = os.getcwd()
+    print(current_path)
+    with open('env/local_config.yaml', 'r') as file:
         local_config = yaml.safe_load(file)
     if local_config['network']['ip'] == 'YOUR_IP_ADDRESS':
         raise ValueError("Please update 'network.ip' in local_config.yaml")
