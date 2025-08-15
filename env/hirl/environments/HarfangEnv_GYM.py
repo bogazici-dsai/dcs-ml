@@ -695,32 +695,32 @@ class SimpleEnemy(HarfangEnv):
             m['missile_id'] for m in ally_missile_list
             if m['position'] != [0.0, 0.0, 0.0]
         ]
-
+        # [track:0 , evade:1, climb:2, fire:3]
         # Meteor atışı
-        if float(action_ally[3]) == 0:  # Meteor
-            meteor_slots = [
-                int(m.split('-')[-1])
-                for m in ally_unfired_missiles
-                if "Meteor" in m
-            ]
-            if meteor_slots:  # Ateş edilmemiş Meteor varsa
-                slot = min(meteor_slots)
-                df.fire_missile(self.Plane_ID_ally, slot)
-            else:
-                print("[INFO] Ateşlenecek Meteor yok.")
+        # if float(action_ally[3]) == 0:  # Meteor
+        #     meteor_slots = [
+        #         int(m.split('-')[-1])
+        #         for m in ally_unfired_missiles
+        #         if "Meteor" in m
+        #     ]
+        #     if meteor_slots:  # Ateş edilmemiş Meteor varsa
+        #         slot = min(meteor_slots)
+        #         df.fire_missile(self.Plane_ID_ally, slot)
+        #     else:
+        #         print("[INFO] Ateşlenecek Meteor yok.")
 
         # AIM_SL atışı
-        elif float(action_ally[3]) == 1:  # AIM_SL
-            aim_sl_slots = [
-                int(m.split('-')[-1])
-                for m in ally_unfired_missiles
-                if "AIM_SL" in m
-            ]
-            if aim_sl_slots:  # Ateş edilmemiş AIM_SL varsa
-                slot = min(aim_sl_slots)
-                df.fire_missile(self.Plane_ID_ally, slot)
-            else:
-                print("[INFO] Ateşlenecek AIM_SL yok.")
+        # if float(action_ally[3]) == 1:  # AIM_SL
+        #     aim_sl_slots = [
+        #         int(m.split('-')[-1])
+        #         for m in ally_unfired_missiles
+        #         if "AIM_SL" in m
+        #     ]
+        #     if aim_sl_slots:  # Ateş edilmemiş AIM_SL varsa
+        #         slot = min(aim_sl_slots)
+        #         df.fire_missile(self.Plane_ID_ally, slot)
+        #     else:
+        #         print("[INFO] Ateşlenecek AIM_SL yok.")
 
         oppo_missile_vec = self.get_enemy_missile_vector()
         # ennemy_2 ile başlayan missile'lar
@@ -749,6 +749,7 @@ class SimpleEnemy(HarfangEnv):
             ]
             slot = min(oppo_slots)
             df.fire_missile(self.Plane_ID_oppo, slot)
+            print(" === enemy fired missile! ===")
 
 
         # Finalize step

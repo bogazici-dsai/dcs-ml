@@ -534,20 +534,20 @@ class Agents:
         fire_cmd = -1.0
         return [float(pitch_raw), roll_cmd, yaw_cmd, fire_cmd]
 
-    def fire_cmd_Meteor(self, state):
-        locked = state[7]
-        if locked > 0:
-            fire_cmd = 0
-        else:
-            fire_cmd = -1.0
-        return [0, 0, 0, fire_cmd]
+    # def fire_cmd_Meteor(self, state):
+    #     locked = state[7]
+    #     if locked > 0:
+    #         fire_cmd = 0
+    #     else:
+    #         fire_cmd = -1.0
+    #     return [0, 0, 0, fire_cmd]
 
-    def fire_cmd_AIM_SL(self, state):
+    def fire_cmd(self, state):
         locked = state[7]
         if locked > 0:
             fire_cmd = 1
         else:
-            fire_cmd = -1.0
+            fire_cmd = 0
         return [0, 0, 0, fire_cmd]
 
     def enemys_track_cmd(self, state):
@@ -696,9 +696,9 @@ def main(args):
                     args.command = "track"
                     if distance_to_enemy < 5000:
                         if distance_to_enemy < 1000 and state[7] == True:
-                            args.command = "fire_aim_sl"
-                        elif distance_to_enemy > 1000 and state[7] == True:
-                            args.command = "fire_meteor"
+                            args.command = "fire"
+                        # elif distance_to_enemy > 1000 and state[7] == True:
+                        #     args.command = "fire_meteor"
             else:
                 threat_detected = any(
                     m.get("position") != [0.0, 0.0, 0.0] for m in state[22:]
@@ -715,10 +715,10 @@ def main(args):
                 action = agent.evade_cmd(state)
             elif args.command == "climb":
                 action = agent.climb_cmd(state)
-            elif args.command == "fire_meteor":
-                action = agent.fire_cmd_Meteor(state)
-            elif args.command == "fire_aim_sl":
-                action = agent.fire_cmd_AIM_SL(state)
+            elif args.command == "fire":
+                action = agent.fire_cmd(state)
+            # elif args.command == "fire_aim_sl":
+            #     action = agent.fire_cmd_AIM_SL(state)
 
             # --- Enemy action (aynı komut kendi state'ine uygulanıyor) ---
             if args.command == "track":
@@ -727,10 +727,10 @@ def main(args):
                 oppo_action = agent.evade_cmd(oppo_state)
             elif args.command == "climb":
                 oppo_action = agent.climb_cmd(oppo_state)
-            elif args.command == "fire_meteor":
-                oppo_action = agent.fire_cmd_Meteor(oppo_state)
-            elif args.command == "fire_aim_sl":
-                oppo_action = agent.fire_cmd_AIM_SL(oppo_state)
+            elif args.command == "fire":
+                oppo_action = agent.fire_cmd(oppo_state)
+            # elif args.command == "fire_aim_sl":
+            #     oppo_action = agent.fire_cmd_AIM_SL(oppo_state)
 
             # NOT: alttaki override satırı kaldırıldı
             # oppo_action = agent.enemys_track_cmd(oppo_state)
