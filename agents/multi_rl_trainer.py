@@ -251,13 +251,14 @@ class MultiRLTrainer:
             'final_model_path': final_model_path
         }
     
-    def compare_algorithms(self, algorithms: list = None, total_timesteps: int = 500000):
+    def compare_algorithms(self, algorithms: list = None, total_timesteps: int = 500000, use_wandb: bool = True):
         """
         Train and compare multiple RL algorithms
         
         Args:
             algorithms: List of algorithms to compare (default: all)
             total_timesteps: Training timesteps for each algorithm
+            use_wandb: Whether to use WandB logging
         """
         if algorithms is None:
             algorithms = ['PPO', 'SAC', 'TD3']
@@ -273,7 +274,7 @@ class MultiRLTrainer:
         
         for algorithm in algorithms:
             try:
-                result = self.train_algorithm(algorithm, total_timesteps, use_wandb=True)
+                result = self.train_algorithm(algorithm, total_timesteps, use_wandb=use_wandb)
                 training_results.append(result)
                 
                 # Brief pause between algorithms

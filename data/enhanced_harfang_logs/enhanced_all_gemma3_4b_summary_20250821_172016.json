@@ -1,0 +1,13 @@
+{
+  "session_id": "session_20250821_172016",
+  "runtime_seconds": 55.240848779678345,
+  "total_episodes": 0,
+  "total_steps": 0,
+  "steps_per_second": 0.0,
+  "llm_calls": 0,
+  "llm_call_rate": 0.0,
+  "shots_fired": 0,
+  "shot_accuracy": 0.0,
+  "victories": 0,
+  "defeat_rate": 0.0
+}

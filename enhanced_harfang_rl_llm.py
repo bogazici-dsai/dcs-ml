@@ -213,7 +213,8 @@ def main():
             trainer = MultiRLTrainer(env, tactical_assistant, config)
             results = trainer.compare_algorithms(
                 algorithms=['PPO', 'SAC', 'TD3'],
-                total_timesteps=args.total_timesteps
+                total_timesteps=args.total_timesteps,
+                use_wandb=use_wandb
             )
             
             print(f"\n[COMPLETE] Algorithm comparison finished")
