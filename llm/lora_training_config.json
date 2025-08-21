@@ -1,0 +1,36 @@
+{
+  "base_model": "google/gemma-2-4b",
+  "target_model_name": "combat-gemma3-4b",
+  "lora_config": {
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.1,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "training_config": {
+    "learning_rate": 0.0002,
+    "num_epochs": 3,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4
+  },
+  "hardware_requirements": {
+    "min_vram": "12GB",
+    "recommended_vram": "16GB+",
+    "estimated_time": "4-8 hours on RTX 4090",
+    "quantization": "4-bit for memory efficiency"
+  },
+  "data_requirements": {
+    "training_examples": 1800,
+    "evaluation_examples": 200,
+    "source_data": "GPT-4 generated tactical scenarios",
+    "expansion_factor": "10x (200 \u2192 2000 scenarios)"
+  }
+}

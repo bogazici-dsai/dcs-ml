@@ -3,16 +3,33 @@ torch>=2.1
 numpy~=2.0.2
 PyYAML~=6.0.2
 loguru~=0.7.3
-tensorboard # DONE
+tensorboard
 
 # RL Environment
 gymnasium~=1.1.1
-stable_baselines3 # DONE
+stable_baselines3
 
-# LangChain + LLM # DONE
+# Enhanced RL Training
+wandb  # Weights & Biases for experiment tracking
+accelerate  # For distributed training and optimization
+
+# LangChain + LLM Integration
 langchain>=0.1.17
 langchain-core>=0.1.35
 langchain-community>=0.0.30
-langchain-ollama>=0.1.0  # important for Ollama integration
+langchain-ollama>=0.1.0  # Ollama integration
+langchain-openai>=0.1.0  # OpenAI API integration (GPT-5)
 
+# LoRA Fine-Tuning (Optional - install when ready for fine-tuning)
+# peft>=0.7.0  # Parameter-Efficient Fine-Tuning
+# transformers>=4.36.0  # Hugging Face transformers
+# datasets>=2.15.0  # Dataset handling
+# bitsandbytes>=0.41.0  # 4-bit quantization
+
+# Environment-specific
 minigrid~=3.0.0
+
+# Visualization and Analysis
+matplotlib>=3.7.0
+seaborn>=0.12.0
+pandas>=2.0.0

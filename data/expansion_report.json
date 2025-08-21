@@ -1,0 +1,53 @@
+{
+  "expansion_summary": {
+    "original_count": "~200 (estimated)",
+    "expanded_count": 2000,
+    "expansion_factor": "10.0x",
+    "expansion_date": 1755782059.3711889
+  },
+  "dataset_statistics": {
+    "total_scenarios": 2000,
+    "scenario_types": {
+      "stern_aspect_bvr": 182,
+      "escort_mission": 187,
+      "defensive_spiral": 169,
+      "intercept_mission": 166,
+      "cap_patrol": 180,
+      "beam_aspect_bvr": 176,
+      "head_on_bvr": 193,
+      "wvr_dogfight": 158,
+      "support_scenario": 161,
+      "multi_target": 164,
+      "merge_geometry": 164
+    },
+    "distance_distribution": {},
+    "aircraft_combinations": {},
+    "weather_distribution": {
+      "cloudy": 200,
+      "snow": 240,
+      "night": 380,
+      "rain": 300,
+      "clear": 240,
+      "dawn": 300,
+      "dusk": 160,
+      "overcast": 180
+    },
+    "completion_types": {
+      "Maneuver": 2000,
+      "Sensoring": 2000,
+      "Firing": 2000,
+      "Countermeasuring": 2000,
+      "environmental_factors": 1900
+    }
+  },
+  "quality_metrics": {
+    "scenario_diversity": 11,
+    "weather_coverage": 8,
+    "tactical_coverage": 5
+  },
+  "fine_tuning_readiness": {
+    "sufficient_data": true,
+    "diverse_scenarios": true,
+    "ready_for_lora": true
+  }
+}
