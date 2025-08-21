@@ -5,11 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-from hirl.environments.HarfangEnv_GYM_new import HarfangEnv, SimpleEnemy, Action_Helper
+from hirl.environments.HarfangEnv_GYM_new import HarfangEnv, SimpleEnemy
 import hirl.environments.dogfight_client as df
 
 from agents import Ally, Oppo
-
+from action_helper import *
 
 
 # ------------------------------------ Main ------------------------------------ #

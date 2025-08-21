@@ -13,24 +13,10 @@ class Agents:
     """
 
     def __init__(self):
-        self._helper = ActionHelper()
+        self.action_helper = ActionHelper()
 
-    # Primitive actions — delegate to ActionHelper (unchanged numerics/logic)
-    def track_cmd(self, state):
-        return self._helper.track_cmd(state)
-
-    def evade_cmd(self, state):
-        return self._helper.evade_cmd(state)
-
-    def climb_cmd(self, state):
-        return self._helper.climb_cmd(state)
-
-    def fire_cmd(self, state):
-        return self._helper.fire_cmd(state)
-
-    # Enemy flavor track (kept for parity with the previous code)
-    def enemys_track_cmd(self, state):
-        return self._helper.enemys_track_cmd(state)
+    def update(self, state):
+        self.state = state
 
     @staticmethod
     def _has_incoming_threat(state) -> bool:
@@ -72,9 +58,6 @@ class Ally(Agents):
         self.debug = bool(debug)
         self.steps_between_fires = int(steps_between_fires)
 
-    def update(self, state):
-        self.state = state
-
     def behave(self):
         assert self.state is not None, "Call update(state) before behave()."
         s = self.state
@@ -111,15 +94,15 @@ class Ally(Agents):
 
         # Map to action
         if command == "track":
-            action = self.track_cmd(s)
+            action = self.action_helper.track_cmd(s)
         elif command == "evade":
-            action = self.evade_cmd(s)
+            action = self.action_helper.evade_cmd(s)
         elif command == "climb":
-            action = self.climb_cmd(s)
+            action = self.action_helper.climb_cmd(s)
         elif command == "fire":
-            action = self.fire_cmd(s)
-        else:
-            action = self.track_cmd(s)
+            action = self.action_helper.fire_cmd(s)
+        else: # DEFAULT action
+            action = self.action_helper.track_cmd(s)
 
         self._step += 1
         return action, command
@@ -140,6 +123,8 @@ class OppoParams:
     beam_duration: tuple = (35, 55)
     egress_duration: tuple = (80, 120)
     rng_seed: int = 2025
+
+
 class Oppo(Agents):
     def __init__(self, debug=False, fire_cooldown=600):
         super().__init__()
@@ -148,9 +133,6 @@ class Oppo(Agents):
         self.debug = bool(debug)
         self.fire_cooldown = int(fire_cooldown)
         self._last_fire_step = -10_000  # ilk atışa izin
-
-    def update(self, state):
-        self.state = state
 
     def behave(self):
         assert self.state is not None, "Call update(state) before behave()."
@@ -197,16 +179,16 @@ class Oppo(Agents):
 
         # komutu aksiyona çevir
         if command == "track":
-            action = self.enemys_track_cmd(s)
+            action = self.action_helper.enemys_track_cmd(s)
         elif command == "evade":
-            action = self.evade_cmd(s)
+            action = self.action_helper.evade_cmd(s)
         elif command == "climb":
-            action = self.climb_cmd(s)
+            action = self.action_helper.climb_cmd(s)
         elif command == "fire":
-            action = self.fire_cmd(s)
+            action = self.action_helper.fire_cmd(s)
             self._last_fire_step = self._step  # cooldown başlat
-        #else:
-            #action = self.enemys_track_cmd(s)
+        else: # DEFAULT action
+            action = self.action_helper.enemys_track_cmd(s)
 
         if self.debug:
             print(f"[OPPO] step={self._step} d={distance_m:.0f}m alt={altitude_m:.0f} lock={int(locked)} thr={int(threat)} -> {command} a={action}")
