@@ -248,27 +248,26 @@ class Oppo(Agents):
                 else:
                     command = "climb" if altitude_m < 5000.0 else "track"
 
-        print("OPPO SELECTED COMMAND:", command)
+        #print("OPPO SELECTED COMMAND:", command)
 
         # Komutu aksiyona çevir
         if command == "track":
             action = self.action_helper.track_cmd(s)
-            print("OPPO APPLYING COMMAND:", command)
-            print(action)
+            #print("OPPO APPLYING COMMAND:", command)
         elif command == "evade":
             action = self.action_helper.evade_cmd(s)
-            print("OPPO APPLYING COMMAND:", command)
+            #print("OPPO APPLYING COMMAND:", command)
         elif command == "climb":
             action = self.action_helper.climb_cmd(s)
-            print("OPPO APPLYING COMMAND:", command)
+            #print("OPPO APPLYING COMMAND:", command)
         elif command == "fire":
             action = self.action_helper.fire_cmd(s)
             self._last_fire_step = self._step  # cooldown
-            print("OPPO APPLYING COMMAND:", command)
+            #print("OPPO APPLYING COMMAND:", command)
         else:  # DEFAULT action
             action = self.action_helper.track_cmd(s)
             command = "track"
-            print("OPPO APPLYING COMMAND:", command)
+            #print("OPPO APPLYING COMMAND:", command)
 
         if self.debug:
             # print(f"[OPPO] step={self._step} d={distance_m:.0f}m alt={altitude_m:.0f} lock={int(locked)} thr={int(threat)} -> {command} a={action}")

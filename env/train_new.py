@@ -46,7 +46,7 @@ def main(args):
 
         done = False
         total_reward, steps = 0.0, 0
-        max_steps = 5000
+        max_steps = 10000
 
         # Optional trajectory plotting
         agent_positions, oppo_positions = [], []
@@ -67,6 +67,10 @@ def main(args):
             ally.update(state)
             oppo.update(oppo_state)
 
+            ally_health = state.get("ally_health")
+            oppo_health = state.get("oppo_health")
+            if steps % 1000 == 0:
+                print(f"Ally Health: {ally_health:.1f} | Oppo Health {oppo_health:.1f}")
             total_reward += float(reward)
             rewards.append(float(reward))
             dones.append(bool(done))
@@ -86,16 +90,14 @@ def main(args):
             ])
 
         # Episode results
-        # Ally health was at state[20] before; dict mapping: "ally_heading" was at 20,
-        # but ally health level is tracked in "ally_heading"? → Instead, check via info or health keys.
-        # For consistency, use env health check: success already in info
-        evade_success = True if state.get("altitude", 1.0) > 0 else False
+
+        evade_success = True if state.get("ally_health") > 0.75 else False
         success = int(info.get("episode_success", False))
         scores.append(total_reward)
         successes.append(success)
         evade_successes.append(evade_success)
         ally_health = state.get("ally_health")
-        oppo_health = oppo_state.get("oppo_health")
+        oppo_health = state.get("oppo_health")
         print(f"Episode {ep + 1}/{args.episodes} | Reward: {total_reward:.1f} | "
               f"Success: {success} | Steps: {steps} | Altitude: {state.get('altitude',0.0)*10000:.0f} m | Ally Health: {ally_health:.1f} | Oppo Health {oppo_health:.1f}")
 

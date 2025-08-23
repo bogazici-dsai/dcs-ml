@@ -85,7 +85,31 @@ class HarfangEnv:
         Reset simulation and return a pair (ally_obs_dict, oppo_obs_dict) for scripts
         that control both sides (rule-based).
         """
-        self._reset_episode_common()
+        self.Ally_target_locked = False
+        self.n_Oppo_target_locked = False
+        self.n_Ally_target_locked = False
+        self.missile1_state = True
+        self.n_missile1_state = True
+        self.success = 0
+        self.done = False
+        self.episode_success = False
+        self.fire_success = False
+        self.now_missile_state = False
+
+        # Machines & missiles
+        self._reset_machine()
+
+        #self._reset_missile() ############
+
+        self.missile_handler.refresh_missiles()
+
+        # Target assignment (lock prerequisite)
+        df.set_target_id(self.Plane_ID_ally, self.Plane_ID_oppo)
+        df.set_target_id(self.Plane_ID_oppo, self.Plane_ID_ally)
+
+        self.state = None
+        self.oppo_state = None
+
         state_ally = self._get_observation()          # dict (ally POV)
         state_oppo = self._get_enemy_observation()    # dict (opponent POV)
 
@@ -164,30 +188,6 @@ class HarfangEnv:
         )
 
     # ------------------------------- Internals --------------------------------- #
-    def _reset_episode_common(self):
-        self.Ally_target_locked = False
-        self.n_Oppo_target_locked = False
-        self.n_Ally_target_locked = False
-        self.missile1_state = True
-        self.n_missile1_state = True
-        self.success = 0
-        self.done = False
-        self.episode_success = False
-        self.fire_success = False
-        self.now_missile_state = False
-
-        # Machines & missiles
-        self._reset_machine()
-        self._reset_missile()
-        self.missile_handler.refresh_missiles()
-
-        # Target assignment (lock prerequisite)
-        df.set_target_id(self.Plane_ID_ally, self.Plane_ID_oppo)
-        df.set_target_id(self.Plane_ID_oppo, self.Plane_ID_ally)
-
-        self.state = None
-        self.oppo_state = None
-
     def _apply_action(self, action_ally, action_enemy):
         # Ally controls
         df.set_plane_pitch(self.Plane_ID_ally, float(action_ally[0]))
@@ -277,8 +277,8 @@ class HarfangEnv:
     def _reset_machine(self):
         df.reset_machine("ally_1")
         df.reset_machine("ennemy_2")
-        df.set_health("ennemy_2", 0.2)
-        df.set_health("ally_1", 1.0)
+        df.set_health(self.Plane_ID_oppo, 0.75)
+        df.set_health(self.Plane_ID_ally, 0.75)
         self.oppo_health = 0.2
         self.ally_health = 1.0
 
@@ -365,7 +365,7 @@ class HarfangEnv:
         self.oppo_health = df.get_health(self.Plane_ID_oppo)
         self.ally_health = df.get_health(self.Plane_ID_ally)
         ally_health_ = self.ally_health['health_level']
-        oppo_hea = self.oppo_health['health_level']
+        oppo_health_ = self.oppo_health['health_level']
 
         Missile_state = df.get_missiles_device_slots_state(self.Plane_ID_ally)
         self.missile1_state = self.n_missile1_state
@@ -383,7 +383,7 @@ class HarfangEnv:
             [locked],                      # 7
             [missile1_state_val],          # 8
             Oppo_Euler,                    # 9..11
-            [oppo_hea],                    # 12
+            [oppo_health_],                    # 12
             Plane_Pos,                     # 13..15  (index 14 == altitude lane)
             Oppo_Pos,                      # 16..18
             [Plane_Heading],               # 19
@@ -410,7 +410,7 @@ class HarfangEnv:
             "oppo_pitch": States[10],
             "oppo_yaw": States[11],
 
-            "oppo_heading": States[12],
+            "oppo_health": States[12],
 
             "plane_x": States[13],
             "plane_z": States[14],   # altitude lane (normalized)
@@ -484,10 +484,9 @@ class HarfangEnv:
         Missile_state = df.get_missiles_device_slots_state(self.Plane_ID_oppo)
         missile1_state_val = 1 if (Missile_state["missiles_slots"] and Missile_state["missiles_slots"][0]) else -1
 
-        oppo_health = df.get_health(self.Plane_ID_oppo)
-        oppo_health_ = oppo_health['health_level']
-        self.ally_health = df.get_health(self.Plane_ID_ally)
-        ally_health_ = self.ally_health['health_level']
+
+        oppo_health_ = df.get_health(self.Plane_ID_ally)['health_level']
+        ally_health_ =  df.get_health(self.Plane_ID_oppo)['health_level']
 
         States = np.concatenate((
             Pos_Diff,             # 0..2
