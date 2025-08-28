@@ -15,6 +15,8 @@ from action_helper import *
 
 import wandb
 
+WANDB = False
+WANDB_RUN_NAME = "train_harfang_rule_based_test_04"
 
 # ------------------------------------ Main ------------------------------------ #
 def main(args):
@@ -40,17 +42,18 @@ def main(args):
     os.makedirs("trajectories", exist_ok=True)
 
     if __name__ == "__main__":
-        wandb.init(
-            project="Harfang_Training",
-            entity="BILGEM_DCS_RL",
-            name=f"train_harfang_rule_based_test_02",
-            config={
-                "env_name": "HARFANG",
-                "algo": "Rule-Based",
-                "max_steps": 10000
-            },
-            sync_tensorboard=True
-        )
+        if WANDB:
+            wandb.init(
+                project="Harfang_Training",
+                entity="BILGEM_DCS_RL",
+                name=WANDB_RUN_NAME,
+                config={
+                    "env_name": "HARFANG",
+                    "algo": "Rule-Based",
+                    "max_steps": 10000
+                },
+                sync_tensorboard=True
+            )
 
 
     for ep in range(args.episodes):
@@ -118,18 +121,19 @@ def main(args):
               f"Success: {success} | Steps: {steps} | Altitude: {state.get('altitude',0.0)*10000:.0f} m | Ally Health: {ally_health:.1f} | Oppo Health {oppo_health:.1f}")
 
         # --- WandB logging ---
-        wandb.log({
-            "episode": ep + 1,
-            "reward": total_reward,
-            "success": success,
-            "evade_success": int(evade_success),
-            "steps": steps,
-            "ally_health": ally_health,
-            "oppo_health": oppo_health,
-            "average_reward" : float(np.mean(scores)),
-            "success_rate" : float(np.mean(successes)),
-            "evade_success_rate" : float(np.mean(evade_successes)),
-        })
+        if WANDB:
+            wandb.log({
+                "episode": ep + 1,
+                "reward": total_reward,
+                "success": success,
+                "evade_success": int(evade_success),
+                "steps": steps,
+                "ally_health": ally_health,
+                "oppo_health": oppo_health,
+                "average_reward" : float(np.mean(scores)),
+                "success_rate" : float(np.mean(successes)),
+                "evade_success_rate" : float(np.mean(evade_successes)),
+            })
 
 
         # Optional 3D plot

@@ -79,6 +79,12 @@ class HarfangEnv:
         self.state = None
         self.oppo_state = None
 
+        self.state_dict = {}
+
+    #     historical attributes
+        self.previous_slots = []
+        self.fired_missile_names = []
+
     # ------------------------------- Public API -------------------------------- #
     def reset(self):
         """
@@ -258,13 +264,13 @@ class HarfangEnv:
         oppo_dmg = max(0.0, (prev_oppo - curr_oppo))
 
         if oppo_dmg > EPS:
-            self.reward += W_ENEMY_HIT * ((oppo_dmg / SCALE) ** ALPHA)
-            self.reward += 200 # sabit reward
+            # self.reward += W_ENEMY_HIT * ((oppo_dmg / SCALE) ** ALPHA)
+            self.reward += 400 # sabit reward
             print(f"enemy hit: Δ={oppo_dmg:.3f}")
 
         if ally_dmg > EPS:
-            self.reward -= W_ALLY_HIT * ((ally_dmg / SCALE) ** ALPHA)
-            self.reward -= 200 # sabit reward
+            # self.reward -= W_ALLY_HIT * ((ally_dmg / SCALE) ** ALPHA)
+            self.reward += -500 # sabit reward
             print(f"ally hit:  Δ={ally_dmg:.3f}")
 
         # --- Relative Bearing shaping reward ----------------------------------------------------------------
@@ -286,7 +292,7 @@ class HarfangEnv:
         # reward term: cosine curve peaks at 0° and decays smoothly to 0 at ±180°
         #   (1+cos)/2  ∈ [0,1]  → maps 0°→1, ±180°→0
         # raising to P sharpens the focus on forward sector
-        self.reward += K_B * ((1.0 + math.cos(math.radians(beta))) * 0.5) ** P
+        # self.reward += K_B * ((1.0 + math.cos(math.radians(beta))) * 0.5) ** P
 
         # --- Range shaping reward --------------------------------------------------------------------
         # k_r = reward scale
@@ -307,7 +313,7 @@ class HarfangEnv:
         d = float(state.get("distance_to_enemy", 0.0))  # current distance (m)
 
         # Gaussian reward: peaks at R*, decays smoothly away
-        self.reward += k_r * math.exp(-((d - R_star) ** 2) / (2 * sigma ** 2))
+        # self.reward += k_r * math.exp(-((d - R_star) ** 2) / (2 * sigma ** 2))
 
         # ----------------------------------------------------------------------------------------------
 
@@ -319,18 +325,19 @@ class HarfangEnv:
         alt = float(self.Plane_Irtifa)
 
         # Bonus peaks at A* (≈k_a) and decays smoothly with distance from A*
-        self.reward += k_a * math.exp(-((alt - A_star) ** 2) / (2.0 * sigma_a ** 2))
+        # self.reward += k_a * math.exp(-((alt - A_star) ** 2) / (2.0 * sigma_a ** 2))
 
 
         #------Altitude Limits------------
         if alt <  200 or alt > 10000:
-            self.reward -= 1000
+            # self.reward -= 1000
+            pass
         #---------------------------------
 
         # ----------------------------------------------------------------------------------------------
         # --- Per-step time cost -----------------
         c_t = 0.01  # small penalty per step
-        self.reward -= c_t
+        # self.reward -= c_t
         #---------------------------------------------------
 
         # --- Too-far penalty -------------------------------------
@@ -340,15 +347,17 @@ class HarfangEnv:
         d = float(state.get("distance_to_enemy", 0.0))
 
         if d > D_far:
-            self.reward -= penalty
+            # self.reward -= penalty
+            pass
         #-------------------------------------------------------------------
 
         if self.oppo_health['health_level'] <= 0.0:
-            self.reward += 1000
+            # self.reward += 1000
             print('enemy have fallen')
             self.success = True
 
     def _get_termination(self):
+
         if self.Plane_Irtifa < 500 or self.Plane_Irtifa > 10000:
             self.done = True
         if self.oppo_health['health_level'] <= 0:
@@ -356,6 +365,36 @@ class HarfangEnv:
             self.episode_success = True
         if self.ally_health['health_level'] <= 0.2:
             self.done = True
+
+        _, missiles_on_air_count = self.detect_missiles_on_air()
+
+        ally_unfired_slots = self._unfired_slots(self.Plane_ID_ally)
+        if len(ally_unfired_slots) == 0:
+            if missiles_on_air_count == 0:
+                self.done = True
+
+    def detect_missiles_on_air(self):
+
+        current_slots = df.get_machine_missiles_list(self.Plane_ID_ally)
+        fired = set(self.previous_slots) - set(current_slots) - {''}
+        if len(fired) > 0:
+            self.fired_missile_names.append(fired.pop())
+
+        #
+        #  run your code here
+        if len(self.fired_missile_names) > 0:
+            for fired_missile_name in self.fired_missile_names:
+                fired_missile_id_guess = MissileHandler.slotid_to_missileid(fired_missile_name)
+                fired_missile_st = df.get_missile_state(fired_missile_id_guess)
+                fired_missile_wreck = fired_missile_st.get("wreck")
+
+                if fired_missile_wreck:
+                    self.fired_missile_names.remove(fired_missile_name)
+        #
+
+        self.previous_slots = current_slots
+        return self.fired_missile_names, len(self.fired_missile_names)
+
 
     def _reset_machine(self):
         df.reset_machine("ally_1")
@@ -458,7 +497,7 @@ class HarfangEnv:
         # Vectorize incoming enemy missiles (absolute meters)
         missile_vec = self._vectorize_missiles(self.get_enemy_missile_vector())
 
-
+        missile_count = len(self.get_ally_missile_vector())
 
         # Build flat vector to reuse existing index map where needed
         States = np.concatenate((
@@ -516,6 +555,8 @@ class HarfangEnv:
             "ally_health": States[20],
             "plane_pitch_att": States[21],
             "relative_bearing": relative_bearing,
+
+            "missile_count": missile_count
         }
 
         # Expand missile scalars as missile_0.. missile_{N-1} for dict space stability
@@ -524,6 +565,8 @@ class HarfangEnv:
 
         # Keep internal flat tail parser available if needed by helpers
         self._last_states_flat = States  # optional: for debugging/legacy
+
+        self.state_dict = state_dict
 
         return state_dict
 
