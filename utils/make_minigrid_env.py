@@ -5,6 +5,8 @@ from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper
 
 def make_env(env_name="MiniGrid-DoorKey-6x6-v0", max_steps=100):
     # Create two separate env instances
+    # TODO:
+    # env = HarfangEnv()
     env_rl = gym.make(env_name, render_mode="rgb_array", max_steps=max_steps)
     env_llm = gym.make(env_name, render_mode="rgb_array", max_steps=max_steps)
 
@@ -15,4 +17,6 @@ def make_env(env_name="MiniGrid-DoorKey-6x6-v0", max_steps=100):
 
     # LLM env: image only
     llm_env = env_llm
+    # TODO:
+    # return env
     return rl_env, llm_env

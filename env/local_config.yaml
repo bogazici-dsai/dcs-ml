@@ -3,6 +3,8 @@ experiment:
 
 network:
   ip: 10.1.110.30 # Please replace this placeholder with your own IP address
+  port: 50888
+  render: True
 
   #python harfang_env/train_all.py --port=50888 --env=serpentine --random --agent=HIRL --type=soft --model_name=my_first_test --seed=42 --render
 

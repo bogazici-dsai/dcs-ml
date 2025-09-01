@@ -17,7 +17,7 @@ Missile data layout in the flat tail (legacy, still used internally for vectoriz
 """
 
 import numpy as np
-import gym
+import gymnasium as gym
 import os
 import inspect
 import random
@@ -29,14 +29,30 @@ import time
 from . import dogfight_client as df
 from .constants import *  # NormStates etc.
 
+# import sys
+# from pathlib import Path
+#
+# # add project root (2 levels up from this file)
+# sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from .agents import Ally, Oppo
+from .action_helper import ActionHelper
+
+
+
+
 MAX_TRACKED_MISSILES = 4
 MISSILE_PACK_LEN = 5  # [present, mx, my, mz, heading]
 
 
-class HarfangEnv:
-    """
-    Harfang air-combat environment with dict observations.
-    """
+CMD_TRACK = 0
+CMD_EVADE = 1
+CMD_CLIMB = 2
+CMD_FIRE = 3
+
+class HarfangEnv(gym.Env):
+
+    metadata = {"render_modes": []}
 
     def __init__(self):
         # --- runtime flags/state ---
@@ -68,12 +84,8 @@ class HarfangEnv:
         self.missile_handler = MissileHandler()
 
         # Spaces
-        self.action_space = gym.spaces.Box(
-            low=np.array([-1.0, -1.0, -1.0, -1.0], dtype=np.float32),
-            high=np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32),
-            dtype=np.float32,
-        )
-        self.observation_space = None  # will become gym.spaces.Dict after first reset
+        self.action_space = gym.spaces.Discrete(4)
+        self.observation_space = None  # will become gym.spaces.Dict after first reset (yes)
 
         # Last states (dicts after first reset)
         self.state = None
@@ -85,12 +97,17 @@ class HarfangEnv:
         self.previous_slots = []
         self.fired_missile_names = []
 
+
+        self.action_helper = ActionHelper()
+        self.oppo = Oppo()
+
+
+
     # ------------------------------- Public API -------------------------------- #
-    def reset(self):
-        """
-        Reset simulation and return a pair (ally_obs_dict, oppo_obs_dict) for scripts
-        that control both sides (rule-based).
-        """
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
+
+        # do the old reset work
         self.Ally_target_locked = False
         self.n_Oppo_target_locked = False
         self.n_Ally_target_locked = False
@@ -102,41 +119,41 @@ class HarfangEnv:
         self.fire_success = False
         self.now_missile_state = False
 
-        # Machines & missiles
         self._reset_machine()
-
-        #self._reset_missile() ############
-
         self.missile_handler.refresh_missiles()
 
-        # Target assignment (lock prerequisite)
         df.set_target_id(self.Plane_ID_ally, self.Plane_ID_oppo)
         df.set_target_id(self.Plane_ID_oppo, self.Plane_ID_ally)
 
-        self.state = None
-        self.oppo_state = None
+        state_ally = self._get_observation()
+        state_oppo = self._get_enemy_observation()
 
-        state_ally = self._get_observation()          # dict (ally POV)
-        state_oppo = self._get_enemy_observation()    # dict (opponent POV)
-
-        # finalize observation_space on first call — Dict space derived from keys
         if self.observation_space is None:
             self.observation_space = self._build_obs_space_from(state_ally)
 
-        # cache dicts
         self.state = state_ally
         self.oppo_state = state_oppo
 
-        return state_ally, state_oppo
+        # --- NEW unified info dict ---
+        info = {
+            "opponent_obs": state_oppo,
+            "success": self.success,
+            "episode_success": self.episode_success,
+            "now_missile_state": self.now_missile_state,
+            "missile1_state": self.missile1_state,
+            "n_missile1_state": self.n_missile1_state,
+        }
 
-    def reset_gym(self):
+        return state_ally, info
+
+    def reset_gym(self): # Deprecated
         """
         Gym-style reset returning (obs_dict, info).
         """
         ally_obs, oppo_obs = self.reset()
         return ally_obs, {"opponent_obs": oppo_obs}
 
-    def step(self, action_ally, action_enemy):
+    def step(self, action_ally):
         """
         Apply ally/opponent actions.
 
@@ -152,7 +169,42 @@ class HarfangEnv:
             - "episode_success": episode-level success
             - "now_missile_state", "missile1_state", "n_missile1_state"
         """
-        self._apply_action(action_ally, action_enemy)
+
+        if action_ally == CMD_TRACK:
+            command = "track"
+        elif action_ally == CMD_EVADE:
+            command = "evade"
+        elif action_ally == CMD_CLIMB:
+            command = "climb"
+        elif action_ally == CMD_FIRE:
+            command = "fire"
+
+        s = self._get_observation()
+
+        # Komutu aksiyona çevir
+        if command == "track":
+            print("ALLY applying TRACK")
+            action = self.action_helper.track_cmd(s)
+        elif command == "evade":
+            print("ALLY applying EVADE")
+            action = self.action_helper.evade_cmd(s)
+        elif command == "climb":
+            action = self.action_helper.climb_cmd(s)
+            print("ALLY applying CLIMB")
+        elif command == "fire":
+            print("ALLY applying FIRE")
+            action = self.action_helper.fire_cmd(s)
+        else:
+            action = self.action_helper.track_cmd(s)
+
+        action_ally_aero = action
+
+        state_oppo = self._get_enemy_observation()
+        self.oppo.update(state_oppo)
+        oppo_action, oppo_cmd = self.oppo.behave()
+        action_enemy = oppo_action
+
+        self._apply_action(action_ally_aero, action_enemy)
         self.missile_handler.refresh_missiles()
 
         n_state = self._get_observation()          # dict
@@ -172,7 +224,11 @@ class HarfangEnv:
             "missile1_state": self.missile1_state,
             "n_missile1_state": self.n_missile1_state,
         }
-        return n_state, float(self.reward), bool(self.done), info
+        # TODO:
+        # convert n_state to a list vector. embed the dictionary to the "info"
+        terminated = bool(self.done)
+        truncated = False  # (optional: add a max-steps check if you want real truncation)
+        return n_state, float(self.reward), terminated, truncated, info
 
     # Legacy helper (kept intact semantics; returns dict now)
     def step_test(self, action):
@@ -264,12 +320,12 @@ class HarfangEnv:
         oppo_dmg = max(0.0, (prev_oppo - curr_oppo))
 
         if oppo_dmg > EPS:
-            # self.reward += W_ENEMY_HIT * ((oppo_dmg / SCALE) ** ALPHA)
+            #self.reward += W_ENEMY_HIT * ((oppo_dmg / SCALE) ** ALPHA)
             self.reward += 400 # sabit reward
             print(f"enemy hit: Δ={oppo_dmg:.3f}")
 
         if ally_dmg > EPS:
-            # self.reward -= W_ALLY_HIT * ((ally_dmg / SCALE) ** ALPHA)
+            #self.reward -= W_ALLY_HIT * ((ally_dmg / SCALE) ** ALPHA)
             self.reward += -500 # sabit reward
             print(f"ally hit:  Δ={ally_dmg:.3f}")
 
@@ -292,7 +348,7 @@ class HarfangEnv:
         # reward term: cosine curve peaks at 0° and decays smoothly to 0 at ±180°
         #   (1+cos)/2  ∈ [0,1]  → maps 0°→1, ±180°→0
         # raising to P sharpens the focus on forward sector
-        # self.reward += K_B * ((1.0 + math.cos(math.radians(beta))) * 0.5) ** P
+        #self.reward += K_B * ((1.0 + math.cos(math.radians(beta))) * 0.5) ** P
 
         # --- Range shaping reward --------------------------------------------------------------------
         # k_r = reward scale
@@ -313,7 +369,7 @@ class HarfangEnv:
         d = float(state.get("distance_to_enemy", 0.0))  # current distance (m)
 
         # Gaussian reward: peaks at R*, decays smoothly away
-        # self.reward += k_r * math.exp(-((d - R_star) ** 2) / (2 * sigma ** 2))
+        #self.reward += k_r * math.exp(-((d - R_star) ** 2) / (2 * sigma ** 2))
 
         # ----------------------------------------------------------------------------------------------
 
@@ -325,19 +381,19 @@ class HarfangEnv:
         alt = float(self.Plane_Irtifa)
 
         # Bonus peaks at A* (≈k_a) and decays smoothly with distance from A*
-        # self.reward += k_a * math.exp(-((alt - A_star) ** 2) / (2.0 * sigma_a ** 2))
+        #self.reward += k_a * math.exp(-((alt - A_star) ** 2) / (2.0 * sigma_a ** 2))
 
 
         #------Altitude Limits------------
         if alt <  200 or alt > 10000:
-            # self.reward -= 1000
+            self.reward -= 1000
             pass
         #---------------------------------
 
         # ----------------------------------------------------------------------------------------------
         # --- Per-step time cost -----------------
         c_t = 0.01  # small penalty per step
-        # self.reward -= c_t
+        #self.reward -= c_t
         #---------------------------------------------------
 
         # --- Too-far penalty -------------------------------------
@@ -347,12 +403,12 @@ class HarfangEnv:
         d = float(state.get("distance_to_enemy", 0.0))
 
         if d > D_far:
-            # self.reward -= penalty
+            self.reward -= penalty
             pass
         #-------------------------------------------------------------------
 
         if self.oppo_health['health_level'] <= 0.0:
-            # self.reward += 1000
+            self.reward += 1000
             print('enemy have fallen')
             self.success = True
 
@@ -404,8 +460,8 @@ class HarfangEnv:
         self.oppo_health = 0.7
         self.ally_health = 0.7
 
-        df.reset_machine_matrix(self.Plane_ID_ally, 0, 4200, 0, 0, 0, 0)
-        df.reset_machine_matrix(self.Plane_ID_oppo, 0, 3500, -4000, 0, 0, 0)
+        df.reset_machine_matrix(self.Plane_ID_oppo, 0, 4200, 0, 0, 0, 0)
+        df.reset_machine_matrix(self.Plane_ID_ally, 0, 3500, -4000, 0, 0, 0)
 
         df.set_plane_thrust(self.Plane_ID_ally, 1.0)
         df.set_plane_thrust(self.Plane_ID_oppo, 1.0)
@@ -835,7 +891,7 @@ class HarfangEnv:
         return bool(state[-1] <= 0.1)
 
     # ------------------------------- Spaces ------------------------------------- #
-    def _build_obs_space_from(self, obs_dict: dict) -> gym.spaces.Dict:
+    def _build_obs_space_from(self, obs_dict: dict) -> gym.spaces.Dict:  # IMPORTANT ELEMENT
         """
         Create a gym.spaces.Dict with scalar Boxes for each key in the observation dict.
         """
@@ -959,41 +1015,4 @@ class MissileHandler:
         print("Enemy slot state:", self.missile_slot_status(self.enemy_id))
 
 
-# --------------------------- Minimal enemy environment ------------------------- #
-# class SimpleEnemy(HarfangEnv):
-#     """
-#     Minimal adversary wrapper that still respects the finalized slot-based firing.
-#     """
-#
-#     def __init__(self):
-#         super(SimpleEnemy, self).__init__()
-#         self.has_fired = False
-#
-#     def _apply_action(self, action_ally, action_enemy):
-#         # Apply basic controls
-#         df.set_plane_pitch(self.Plane_ID_ally, float(action_ally[0]))
-#         df.set_plane_roll(self.Plane_ID_ally, float(action_ally[1]))
-#         df.set_plane_yaw(self.Plane_ID_ally, float(action_ally[2]))
-#
-#         df.set_plane_pitch(self.Plane_ID_oppo, float(action_enemy[0]))
-#         df.set_plane_roll(self.Plane_ID_oppo, float(action_enemy[1]))
-#         df.set_plane_yaw(self.Plane_ID_oppo, float(action_enemy[2]))
-#
-#         # Slot-based fires (ally)
-#         if float(action_ally[3]) > 0.0:
-#             ally_unfired_slots = self._unfired_slots(self.Plane_ID_ally)
-#             if ally_unfired_slots:
-#                 df.fire_missile(self.Plane_ID_ally, min(ally_unfired_slots))
-#                 self.now_missile_state = True
-#                 print(" === ally fired missile! ===")
-#         else:
-#             self.now_missile_state = False
-#
-#         # Slot-based fires (enemy)
-#         if float(action_enemy[3]) > 0.0:
-#             oppo_unfired_slots = self._unfired_slots(self.Plane_ID_oppo)
-#             if oppo_unfired_slots:
-#                 df.fire_missile(self.Plane_ID_oppo, min(oppo_unfired_slots))
-#                 print(" === enemy fired missile! ===")
-#
-#         df.update_scene()
+

@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from env.hirl.environments.constants import *  # NormStates etc.
+from .constants import *  # NormStates etc.
 
 MAX_TRACKED_MISSILES = 4
 MISSILE_PACK_LEN = 5  # [present, mx, my, mz, heading]

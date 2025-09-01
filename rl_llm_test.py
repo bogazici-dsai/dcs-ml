@@ -36,6 +36,8 @@ if __name__ == '__main__':
     llm = RunnableLambda(lambda x: chat.invoke(x))
 
     env_name = "MiniGrid-DoorKey-6x6-v0"
+    # TODO:
+    # env = make_env(env_name=env_name, max_steps=100)
     rl_env,llm_env = make_env(env_name=env_name, max_steps=100)
 
 

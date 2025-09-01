@@ -7,19 +7,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-from hirl.environments.HarfangEnv_GYM_new import HarfangEnv  # SimpleEnemy kaldırıldı
-import hirl.environments.dogfight_client as df
+from env.hirl.environments.HarfangEnv_GYM_new import HarfangEnv
+import env.hirl.environments.dogfight_client as df
 
-from agents import Ally, Oppo
-from action_helper import *
+from .agents import Ally, Oppo
+from .action_helper import *
 
 import wandb
 
 WANDB = False
 WANDB_RUN_NAME = "train_harfang_rule_based_test_04"
 
+class HarfangEnvWrapper(HarfangEnv()):
+    def __init__(self):
+        # Network bootstrap
+        with open('local_config.yaml', 'r') as f:
+            local_config = yaml.safe_load(f)
+        if local_config['network']['ip'] == 'YOUR_IP_ADDRESS':
+            raise ValueError("Please update 'network.ip' in env/local_config.yaml")
+
+        df.connect(local_config["network"]["ip"], args.port)
+        df.disable_log()
+        df.set_renderless_mode(not args.render)
+        df.set_client_update_mode(True)
+
+        env = HarfangEnv()
+        return env
+
+
 # ------------------------------------ Main ------------------------------------ #
 def main(args):
+
+
+
     # Network bootstrap
     with open('local_config.yaml', 'r') as f:
         local_config = yaml.safe_load(f)

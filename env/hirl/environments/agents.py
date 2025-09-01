@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-from env.hirl.environments.HarfangEnv_GYM_new import HarfangEnv  # SimpleEnemy kaldırıldı (modülde yok)
+# from hirl.environments.HarfangEnv_GYM_new import HarfangEnv  # SimpleEnemy kaldırıldı (modülde yok)
 from .action_helper import ActionHelper
 import random
 
