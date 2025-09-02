@@ -24,6 +24,9 @@ import random
 import math
 import re
 import time
+from pathlib import Path
+import time
+import datetime
 
 # harfang SDK
 from . import dogfight_client as df
@@ -37,6 +40,7 @@ from .constants import *  # NormStates etc.
 
 from .agents import Ally, Oppo
 from .action_helper import ActionHelper
+from .episode_json_logger import EpisodeJSONLogger
 
 
 
@@ -49,12 +53,15 @@ CMD_TRACK = 0
 CMD_EVADE = 1
 CMD_CLIMB = 2
 CMD_FIRE = 3
+CMD_HOLD = 4 # Repeat Previous Action
+
+
 
 class HarfangEnv(gym.Env):
-
     metadata = {"render_modes": []}
 
     def __init__(self):
+
         # --- runtime flags/state ---
         self.done = False
         self.loc_diff = 0.0
@@ -83,8 +90,11 @@ class HarfangEnv(gym.Env):
         # Missile tracker
         self.missile_handler = MissileHandler()
 
+        # Initialize previous action command
+        self._last_macro_cmd = None
+
         # Spaces
-        self.action_space = gym.spaces.Discrete(4)
+        self.action_space = gym.spaces.Discrete(5)  # TRACK, EVADE, CLIMB, FIRE, HOLD
         self.observation_space = None  # will become gym.spaces.Dict after first reset (yes)
 
         # Last states (dicts after first reset)
@@ -93,15 +103,24 @@ class HarfangEnv(gym.Env):
 
         self.state_dict = {}
 
-    #     historical attributes
+        # historical attributes
         self.previous_slots = []
         self.fired_missile_names = []
-
 
         self.action_helper = ActionHelper()
         self.oppo = Oppo()
 
+        # ---- EPISODE LOGGING sayaçları ----
+        self._episode_idx = -1
+        self.steps_in_episode = 0
+        self.episode_return = 0.0
 
+        # ---- JSONL logger (gzip açık) ----
+        self.logger = EpisodeJSONLogger(
+            log_dir="./episode_logs",
+            gzip_enabled=True,
+            run_id=None,  # istersen dışarıdan parametrele
+        )
 
     # ------------------------------- Public API -------------------------------- #
     def reset(self, *, seed=None, options=None):
@@ -134,7 +153,30 @@ class HarfangEnv(gym.Env):
         self.state = state_ally
         self.oppo_state = state_oppo
 
-        # --- NEW unified info dict ---
+        # --- episode sayaçlarını sıfırla ---
+        self._episode_idx += 1
+        self._last_macro_cmd = None
+        self.steps_in_episode = 0
+        self.episode_return = 0.0
+
+        # --- logger: epizot başlat ---
+        meta = {
+            "seed": int(seed) if seed is not None else None,
+            "env_version": getattr(self, "env_version", "unknown"),
+            "map": getattr(self, "map_name", None),
+            "ally": getattr(self, "ally_type", None),
+            "oppo": getattr(self, "oppo_type", None),
+        }
+        self.logger.start_episode(self._episode_idx, meta=meta)
+
+        # --- reset event'ini bir satır logla ---
+        self.logger.log_step({
+            "event": "reset",
+            "obs": state_ally,
+            "opponent_obs": state_oppo,
+        })
+
+        # --- unified info ---
         info = {
             "opponent_obs": state_oppo,
             "success": self.success,
@@ -169,15 +211,26 @@ class HarfangEnv(gym.Env):
             - "episode_success": episode-level success
             - "now_missile_state", "missile1_state", "n_missile1_state"
         """
+        # 1) decide the effective macro (convert HOLD → last macro)
+        if action_ally == CMD_HOLD:
+            print("ALLY applying HOLD")
+            effective_macro = self._last_macro_cmd
+        else:
+            effective_macro = int(action_ally)
 
-        if action_ally == CMD_TRACK:
+        # 2) map effective macro → command string
+        if effective_macro == CMD_TRACK:
             command = "track"
-        elif action_ally == CMD_EVADE:
+        elif effective_macro == CMD_EVADE:
             command = "evade"
-        elif action_ally == CMD_CLIMB:
+        elif effective_macro == CMD_CLIMB:
             command = "climb"
-        elif action_ally == CMD_FIRE:
+        elif effective_macro == CMD_FIRE:
             command = "fire"
+        elif effective_macro is None:
+            command = None
+        else:
+            command = None
 
         s = self._get_observation()
 
@@ -194,27 +247,39 @@ class HarfangEnv(gym.Env):
         elif command == "fire":
             print("ALLY applying FIRE")
             action = self.action_helper.fire_cmd(s)
-        else:
-            action = self.action_helper.track_cmd(s)
+        elif command is None:
+            action = [0, 0, 0, 0]
 
         action_ally_aero = action
 
+        # Opponent davranışı
         state_oppo = self._get_enemy_observation()
         self.oppo.update(state_oppo)
         oppo_action, oppo_cmd = self.oppo.behave()
         action_enemy = oppo_action
 
+        # Fiziğe uygula + füzeleri güncelle
         self._apply_action(action_ally_aero, action_enemy)
         self.missile_handler.refresh_missiles()
 
-        n_state = self._get_observation()          # dict
+        # Yeni state’ler
+        n_state = self._get_observation()  # dict
         n_state_oppo = self._get_enemy_observation()  # dict
 
-        # Reward/termination use environment fields; accept dicts for compatibility
-        self._get_reward(self.state, action_ally, n_state)
+        # Ödül/terminasyon
+        self._get_reward(self.state, effective_macro, n_state)
+
+        # Sonraki HOLD için makroyu hatırla
+        self._last_macro_cmd = effective_macro
+
+        # Env iç sayaçlar
         self.state = n_state
         self.oppo_state = n_state_oppo
         self._get_termination()
+
+        # sayaçlar
+        self.steps_in_episode += 1
+        self.episode_return += float(self.reward)
 
         info = {
             "opponent_obs": n_state_oppo,
@@ -224,10 +289,33 @@ class HarfangEnv(gym.Env):
             "missile1_state": self.missile1_state,
             "n_missile1_state": self.n_missile1_state,
         }
-        # TODO:
-        # convert n_state to a list vector. embed the dictionary to the "info"
+
         terminated = bool(self.done)
-        truncated = False  # (optional: add a max-steps check if you want real truncation)
+        truncated = False
+
+        # --- JSONL LOG: her step ---
+        self.logger.log_step({
+            "event": "step",
+            "action_macro_ally": int(effective_macro) if effective_macro is not None else None,
+            "command_ally": command,  # "track"/"evade"/"climb"/"fire"/None
+            "action_low_ally": action_ally_aero,  # [pitch, roll, yaw, trigger]
+            "action_low_oppo": action_enemy,
+            "oppo_cmd": oppo_cmd,
+            "obs": n_state,  # ally dict
+            "reward": float(self.reward),
+            "terminated": terminated,
+            "truncated": truncated,
+            "info": info,  # opponent_obs vs. içerir
+        })
+
+        # --- Epizot bitişinde özet + dosyayı kapat ---
+        if terminated or truncated:
+            self.logger.end_episode({
+                "episode_success": bool(self.episode_success),
+                "total_reward": float(self.episode_return),
+                "steps": int(self.steps_in_episode),
+            })
+
         return n_state, float(self.reward), terminated, truncated, info
 
     # Legacy helper (kept intact semantics; returns dict now)
@@ -405,6 +493,12 @@ class HarfangEnv(gym.Env):
         if d > D_far:
             self.reward -= penalty
             pass
+        #--------------------------------Successful FIRE-----------------------------------
+        ally_unfired_slots = self._unfired_slots(self.Plane_ID_ally)
+        if len(ally_unfired_slots) > 0:
+            if state.get("locked")==1 and action==CMD_FIRE:
+                #print(f"FIRE REWARD")
+                self.reward += 100
         #-------------------------------------------------------------------
 
         if self.oppo_health['health_level'] <= 0.0:
@@ -414,8 +508,6 @@ class HarfangEnv(gym.Env):
 
     def _get_termination(self):
 
-        if self.Plane_Irtifa < 500 or self.Plane_Irtifa > 10000:
-            self.done = True
         if self.oppo_health['health_level'] <= 0:
             self.done = True
             self.episode_success = True
@@ -428,6 +520,17 @@ class HarfangEnv(gym.Env):
         if len(ally_unfired_slots) == 0:
             if missiles_on_air_count == 0:
                 self.done = True
+
+        #enemye uzaklik a gore termination
+        terminate_s = self._get_observation()
+        if terminate_s.get('distance_to_enemy') >= 5000:
+            self.done = True
+
+        # Altitude a gore termination
+        if self.Plane_Irtifa < 500 or self.Plane_Irtifa > 10000:
+            self.done = True
+
+
 
     def detect_missiles_on_air(self):
 
@@ -563,7 +666,7 @@ class HarfangEnv(gym.Env):
             [locked],                      # 7
             [missile1_state_val],          # 8
             Oppo_Euler,                    # 9..11
-            [oppo_health_],                    # 12
+            [oppo_health_],                # 12
             Plane_Pos,                     # 13..15  (index 14 == altitude lane)
             Oppo_Pos,                      # 16..18
             [Plane_Heading],               # 19
@@ -686,11 +789,11 @@ class HarfangEnv(gym.Env):
             [locked],             # 7
             [missile1_state_val], # 8
             Oppo_Euler,           # 9..11 (ally euler)
-            [oppo_health_],           # 12 (enemy self health)
+            [oppo_health_],       # 12 (enemy self health)
             Plane_Pos,            # 13..15 (enemy self pos)
             Oppo_Pos,             # 16..18 (ally pos)
             [Plane_Heading],      # 19 (enemy heading)
-            [ally_health_],           # 20
+            [ally_health_],       # 20
             [Plane_Pitch_Att],    # 21
             missile_vec           # 22..
         ), axis=None).astype(np.float32)
@@ -714,10 +817,10 @@ class HarfangEnv(gym.Env):
 
             "oppo_health": States[12],
 
-            "plane_x": States[13],
-            "plane_z": States[14],  # altitude lane
-            "plane_y": States[15],
-            "altitude": States[14],  # alias
+            "plane_x": States[13], # normalized
+            "plane_z": States[14],  # altitude lane normalized
+            "plane_y": States[15],  # normalized
+            "altitude": States[14],  # normalized
 
             "oppo_x": States[16],
             "oppo_z": States[17],

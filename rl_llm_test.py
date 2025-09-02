@@ -35,9 +35,10 @@ if __name__ == '__main__':
     chat = ChatOllama(model=llm_model_name, temperature=0.0)
     llm = RunnableLambda(lambda x: chat.invoke(x))
 
-    env_name = "MiniGrid-DoorKey-6x6-v0"
-    # TODO:
-    # env = make_env(env_name=env_name, max_steps=100)
+    env_name = "Harfang"
+
+    env = make_env(max_steps=5000)
+
     rl_env,llm_env = make_env(env_name=env_name, max_steps=100)
 
 
