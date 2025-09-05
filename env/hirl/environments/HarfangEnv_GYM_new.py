@@ -70,6 +70,10 @@ class HarfangEnv(gym.Env):
         self.fire_success = False
         self.now_missile_state = False
 
+        self.fired = False
+        self.fire_timer = 0
+        self.fire_interval = 50
+
         # IDs
         self.Plane_ID_oppo = "ennemy_2"
         self.Plane_ID_ally = "ally_1"
@@ -263,6 +267,12 @@ class HarfangEnv(gym.Env):
         self._apply_action(action_ally_aero, action_enemy)
         self.missile_handler.refresh_missiles()
 
+        if self.fired:
+            self.fire_timer += 1
+            if self.fire_timer > self.fire_interval:
+                self.fire_timer = 0
+                self.fired = False
+
         # Yeni state’ler
         n_state = self._get_observation()  # dict
         n_state_oppo = self._get_enemy_observation()  # dict
@@ -355,8 +365,10 @@ class HarfangEnv(gym.Env):
         if float(action_ally[3]) > 0.0:
             ally_unfired_slots = self._unfired_slots(self.Plane_ID_ally)
             if ally_unfired_slots:
-                df.fire_missile(self.Plane_ID_ally, min(ally_unfired_slots))
-                self.now_missile_state = True
+                if self.fired == False:
+                    df.fire_missile(self.Plane_ID_ally, min(ally_unfired_slots))
+                    self.fired = True
+                    self.now_missile_state = True
 
         if float(action_enemy[3]) > 0.0:
             oppo_unfired_slots = self._unfired_slots(self.Plane_ID_oppo)
@@ -475,7 +487,7 @@ class HarfangEnv(gym.Env):
 
         #------Altitude Limits------------
         if alt <  200 or alt > 10000:
-            self.reward -= 1000
+            # self.reward -= 1000
             pass
         #---------------------------------
 
@@ -498,13 +510,15 @@ class HarfangEnv(gym.Env):
         ally_unfired_slots = self._unfired_slots(self.Plane_ID_ally)
 
         if len(ally_unfired_slots) > 0:
-            if state.get("locked") == 1 and action == CMD_FIRE:
-                self.reward += 100
-
-        else:  # hiç füze kalmamış
-            if not self.no_missile_penalized:  # daha önce ceza vermedik
-                self.reward += -100
-                self.no_missile_penalized = True
+            if state.get("locked") == 1:
+                if action == CMD_FIRE:
+                    self.reward += 100
+            else:
+                if action == CMD_FIRE:
+                    self.reward += -200
+        else:
+            if action == CMD_FIRE:
+                self.reward += -50
 
         #-------------------------------------------------------------------
 
