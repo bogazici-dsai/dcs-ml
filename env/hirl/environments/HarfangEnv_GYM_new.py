@@ -200,6 +200,10 @@ class HarfangEnv(gym.Env):
         ally_obs, oppo_obs = self.reset()
         return ally_obs, {"opponent_obs": oppo_obs}
 
+
+    def sim_step(self):
+        pass
+
     def step(self, action_ally):
         """
         Apply ally/opponent actions.
@@ -216,6 +220,15 @@ class HarfangEnv(gym.Env):
             - "episode_success": episode-level success
             - "now_missile_state", "missile1_state", "n_missile1_state"
         """
+
+        # for i in range(30):
+        #     self.sim_step()
+        #
+        #
+        # return n_state, float(self.reward), terminated, truncated, info
+
+
+
         # 1) decide the effective macro (convert HOLD → last macro)
         if action_ally == CMD_HOLD:
             print("ALLY applying HOLD")

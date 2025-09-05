@@ -1,3 +1,10 @@
+# TODO:
+# yeni reward güncellememiz var. (yapıldı, etkisini görücez)
+# macro'ların duration'ı artırıcaz, macroların içine gömelim.
+# iç içe step function şeklinde olabilir
+# şimdilik sabit duration'lar verelim
+# implement ettikten sonra egitime bırakalım
+
 import os
 import glob
 import argparse
