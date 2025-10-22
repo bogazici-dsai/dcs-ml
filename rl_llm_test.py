@@ -5,7 +5,7 @@ import numpy as np
 
 from langchain_ollama import ChatOllama
 from langchain_core.runnables import RunnableLambda
-from MinigridAssistant.minigrid_assistant import MinigridAgent
+from Assistants.minigrid_assistant import MinigridAgent
 from utils.make_minigrid_env import make_env
 from stable_baselines3 import PPO
 import wandb
@@ -31,20 +31,23 @@ if __name__ == '__main__':
     device = get_device()
     print("Using device:", device)
 
-    llm_model_name = "llama3.1:8b"
-    chat = ChatOllama(model=llm_model_name, temperature=0.0)
-    llm = RunnableLambda(lambda x: chat.invoke(x))
+    llm_model_name = "MOCK"
+    # chat = ChatOllama(model=llm_model_name, temperature=0.0)
+    # llm = RunnableLambda(lambda x: chat.invoke(x)) # ŞİMDİLİK MOCK OLSUN
+    llm = "MOCK"
 
     env_name = "Harfang"
 
-    env = make_env(max_steps=5000)
 
-    rl_env,llm_env = make_env(env_name=env_name, max_steps=100)
+    # Env
+    rl_llm_env = make_env(max_steps=100, config_path="env/local_config.yaml", port=50888)
+
+    # rl_env,llm_env = make_env(env_name=env_name, max_steps=100)
 
 
-    model_path = "models/ppo_minigrid_doorkey_6x6_250000_steps_yedek"
+    model_path = "models/ppo_harfang_v14_15-09-2025_01.zip" # PRE-TRAINED MODEL
     model = PPO.load(model_path, device=device)
-    tsc_agent = MinigridAgent(llm=llm, verbose=True)
+    harfang_agent = MinigridAgent(llm=llm, verbose=True)
 
     # Evaluation settings
     num_episodes = 100
@@ -53,9 +56,9 @@ if __name__ == '__main__':
     all_rewards = []
     all_steps = []
     wandb.init(
-        project="PPO_MiniGrid_Training",
+        project="HARFANG_RL_LLM_TEST",
         entity="BILGEM_DCS_RL",
-        name=f"ppo_minigrid_doorkey_eval_rl_llm_{num_episodes}_episodes",
+        name=f"HARFANG_eval_rl_llm_{num_episodes}_episodes_test_run-24_09_2025",
         config={
             "env_name": env_name,
             "model_path": model_path,
@@ -66,36 +69,40 @@ if __name__ == '__main__':
     )
     successes = []
     for episode in range(num_episodes):
-        RL_obs, info_rl = rl_env.reset(seed=episode)
-        LLM_obs, info_llm = llm_env.reset(seed=episode)
+        rl_llm_obs, rl_llm_info = rl_llm_env.reset()
+        #RL_obs, info_rl = rl_env.reset(seed=episode)
+        #LLM_obs, info_llm = llm_env.reset(seed=episode)
         done = False
         sim_step = 1
         total_reward = 0
 
         while not done:
-            action, _ = model.predict(RL_obs, deterministic=True)
+            action, _ = model.predict(rl_llm_obs, deterministic=True)
 
             if sim_step % llm_frequency == 2:
-                action, _ = tsc_agent.agent_run(
+                action, _ = harfang_agent.agent_run(
                     sim_step=sim_step,
-                    obs=LLM_obs,
+                    obs=rl_llm_obs,
                     action=action,
                     infos={"env": env_name,
-                           "llm_env": llm_env}
+                           "llm_env": rl_llm_env}
                 )
 
-            RL_obs, reward, terminated, truncated, info = rl_env.step(action)
-            LLM_obs, _, _, _, _ = llm_env.step(action)
+            #RL_obs, reward, terminated, truncated, info = rl_env.step(action)
+            #LLM_obs, _, _, _, _ = llm_env.step(action)
+
+
+            rl_llm_obs, reward, terminated, truncated, info = rl_llm_env.step(action)
             done = terminated or truncated
             total_reward += reward
             sim_step += 1
-            llm_env.render()
+            #llm_env.render()
 
         all_rewards.append(total_reward)
         all_steps.append(sim_step)
-        is_success = total_reward > 0
+        is_success = int(info.get("success"))
         successes.append(is_success)
-        cumulative_avg_success = np.mean(successes) * 100
+        cumulative_avg_success = np.mean(successes) * num_episodes
         print(f"[Episode {episode+1}] Reward: {total_reward:.2f}, Steps: {sim_step}")
         wandb.log({
             "episode": episode + 1,
@@ -103,12 +110,12 @@ if __name__ == '__main__':
             "episode_steps": sim_step,
             "cumulative_avg_success_rate": cumulative_avg_success
         })
-    llm_env.close()
-    rl_env.close()
+    # llm_env.close()
+    # rl_env.close()
     wandb.log({
         "average_reward": np.mean(all_rewards),
         "average_steps": np.mean(all_steps),
-        "success_rate": np.mean(successes) * 100
+        "success_rate": np.mean(successes) * num_episodes
     })
     wandb.finish()
 

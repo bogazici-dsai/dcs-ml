@@ -2,7 +2,8 @@ experiment:
   result_dir: results
 
 network:
-  ip: 10.1.110.30 # Please replace this placeholder with your own IP address
+  ip: 10.1.110.30 # 1650
+  # ip: 10.1.110.25 # 2060 Laptop
   port: 50888
   render: True
 

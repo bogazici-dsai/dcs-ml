@@ -6,7 +6,7 @@ import yaml
 from gymnasium.wrappers import TimeLimit, FlattenObservation
 from env.hirl.environments.HarfangEnv_GYM_new import HarfangEnv
 from env.hirl.environments import dogfight_client as df
-def make_env(max_steps: int = 5000, config_path: str = "env/local_config.yaml"):
+def make_env(max_steps: int = 5000, config_path: str = "env/local_config.yaml", port: int = None):
     # # Create two separate env instances
 
     # env_rl = gym.make(env_name, render_mode="rgb_array", max_steps=max_steps)
@@ -21,29 +21,33 @@ def make_env(max_steps: int = 5000, config_path: str = "env/local_config.yaml"):
     # llm_env = env_llm
     # return rl_env,
 
-    # --- Read config ---
-
+    """
+        Creates and wraps the HARFANG environment.
+        """
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
 
     ip = str(cfg.get("network", {}).get("ip", "")).strip()
-    # port = int(cfg.get("network", {}).get("port", 50888))
-    port = 50777
+    port_cfg = int(cfg.get("network", {}).get("port", 50888))
     render = bool(cfg.get("render", True))
+
+    # CLI port overrides config
+    if port is not None:
+        port_cfg = int(port)
 
     if not ip or ip == "YOUR_IP_ADDRESS":
         raise ValueError(f"Please set a valid 'network.ip' in {config_path}")
 
-    # --- Connect df once before env creation ---
-    df.connect(ip, port)
+    # Connect once before env creation
+    df.connect(ip, port_cfg)
     df.disable_log()
-    df.set_renderless_mode(not render)
+    df.set_renderless_mode(not render)  # correct passthrough
     df.set_client_update_mode(True)
 
-    # --- Build env chain (MlpPolicy needs flat Box obs) ---
-    env = HarfangEnv()  # Dict obs
-    env.reset()  # ensures observation_space is built
+    # Dict obs -> Flatten for MlpPolicy, with time limit + monitor
+    env = HarfangEnv()
+    env.reset()
     env = FlattenObservation(env)
-    env = TimeLimit(env, max_episode_steps=max_steps)  # truncated=True at horizon
-
+    env = TimeLimit(env, max_episode_steps=max_steps)
+    env = Monitor(env)
     return env
